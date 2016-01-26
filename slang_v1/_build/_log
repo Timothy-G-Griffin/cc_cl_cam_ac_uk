@@ -1,0 +1,88 @@
+### Starting build.
+# Target: slang.ml.depends, tags: { extension:ml, file:slang.ml, ocaml, ocamldep, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamldep.opt -modules slang.ml > slang.ml.depends
+# Target: errors.mli.depends, tags: { extension:mli, file:errors.mli, ocaml, ocamldep, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamldep.opt -modules errors.mli > errors.mli.depends
+# Target: front_end.mli.depends, tags: { extension:mli, file:front_end.mli, ocaml, ocamldep, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamldep.opt -modules front_end.mli > front_end.mli.depends
+# Target: ast.mli.depends, tags: { extension:mli, file:ast.mli, ocaml, ocamldep, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamldep.opt -modules ast.mli > ast.mli.depends
+# Target: past.mli.depends, tags: { extension:mli, file:past.mli, ocaml, ocamldep, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamldep.opt -modules past.mli > past.mli.depends
+# Target: past.cmi, tags: { byte, compile, extension:mli, file:past.mli, interf, ocaml, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamlc.opt -c -o past.cmi past.mli
+# Target: ast.cmi, tags: { byte, compile, extension:mli, file:ast.mli, interf, ocaml, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamlc.opt -c -o ast.cmi ast.mli
+# Target: interp_0.mli.depends, tags: { extension:mli, file:interp_0.mli, ocaml, ocamldep, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamldep.opt -modules interp_0.mli > interp_0.mli.depends
+# Target: tests.mli.depends, tags: { extension:mli, file:tests.mli, ocaml, ocamldep, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamldep.opt -modules tests.mli > tests.mli.depends
+# Target: errors.cmi, tags: { byte, compile, extension:mli, file:errors.mli, interf, ocaml, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamlc.opt -c -o errors.cmi errors.mli
+# Target: front_end.cmi, tags: { byte, compile, extension:mli, file:front_end.mli, interf, ocaml, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamlc.opt -c -o front_end.cmi front_end.mli
+# Target: interp_0.cmi, tags: { byte, compile, extension:mli, file:interp_0.mli, interf, ocaml, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamlc.opt -c -o interp_0.cmi interp_0.mli
+# Target: tests.cmi, tags: { byte, compile, extension:mli, file:tests.mli, interf, ocaml, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamlc.opt -c -o tests.cmi tests.mli
+# Target: slang.cmo, tags: { byte, compile, extension:cmo, extension:ml, file:slang.cmo, file:slang.ml, implem, ocaml, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamlc.opt -c -o slang.cmo slang.ml
+# Target: errors.ml.depends, tags: { extension:ml, file:errors.ml, ocaml, ocamldep, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamldep.opt -modules errors.ml > errors.ml.depends
+# Target: front_end.ml.depends, tags: { extension:ml, file:front_end.ml, ocaml, ocamldep, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamldep.opt -modules front_end.ml > front_end.ml.depends
+# Target: lexer.mll, tags: { extension:mll, file:lexer.mll, lexer, ocaml, ocamllex, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamllex.opt -q lexer.mll
+# Target: lexer.ml.depends, tags: { extension:ml, file:lexer.ml, ocaml, ocamldep, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamldep.opt -modules lexer.ml > lexer.ml.depends
+# Target: parser.mly, tags: { extension:mly, file:parser.mly, infer, ocaml, ocamlyacc, parser, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamlyacc parser.mly
+# Target: parser.mli.depends, tags: { extension:mli, file:parser.mli, ocaml, ocamldep, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamldep.opt -modules parser.mli > parser.mli.depends
+# Target: parser.cmi, tags: { byte, compile, extension:mli, file:parser.mli, interf, ocaml, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamlc.opt -c -o parser.cmi parser.mli
+# Target: past_to_ast.mli.depends, tags: { extension:mli, file:past_to_ast.mli, ocaml, ocamldep, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamldep.opt -modules past_to_ast.mli > past_to_ast.mli.depends
+# Target: static.mli.depends, tags: { extension:mli, file:static.mli, ocaml, ocamldep, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamldep.opt -modules static.mli > static.mli.depends
+# Target: lexer.cmo, tags: { byte, compile, extension:cmo, extension:ml, file:lexer.cmo, file:lexer.ml, implem, ocaml, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamlc.opt -c -o lexer.cmo lexer.ml
+# Target: past_to_ast.cmi, tags: { byte, compile, extension:mli, file:past_to_ast.mli, interf, ocaml, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamlc.opt -c -o past_to_ast.cmi past_to_ast.mli
+# Target: static.cmi, tags: { byte, compile, extension:mli, file:static.mli, interf, ocaml, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamlc.opt -c -o static.cmi static.mli
+# Target: interp_0.ml.depends, tags: { extension:ml, file:interp_0.ml, ocaml, ocamldep, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamldep.opt -modules interp_0.ml > interp_0.ml.depends
+# Target: tests.ml.depends, tags: { extension:ml, file:tests.ml, ocaml, ocamldep, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamldep.opt -modules tests.ml > tests.ml.depends
+# Target: errors.cmo, tags: { byte, compile, extension:cmo, extension:ml, file:errors.cmo, file:errors.ml, implem, ocaml, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamlc.opt -c -o errors.cmo errors.ml
+# Target: front_end.cmo, tags: { byte, compile, extension:cmo, extension:ml, file:front_end.cmo, file:front_end.ml, implem, ocaml, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamlc.opt -c -o front_end.cmo front_end.ml
+# Target: interp_0.cmo, tags: { byte, compile, extension:cmo, extension:ml, file:interp_0.cmo, file:interp_0.ml, implem, ocaml, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamlc.opt -c -o interp_0.cmo interp_0.ml
+# Target: tests.cmo, tags: { byte, compile, extension:cmo, extension:ml, file:tests.cmo, file:tests.ml, implem, ocaml, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamlc.opt -c -o tests.cmo tests.ml
+# Target: ast.ml.depends, tags: { extension:ml, file:ast.ml, ocaml, ocamldep, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamldep.opt -modules ast.ml > ast.ml.depends
+# Target: parser.ml.depends, tags: { extension:ml, file:parser.ml, ocaml, ocamldep, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamldep.opt -modules parser.ml > parser.ml.depends
+# Target: past.ml.depends, tags: { extension:ml, file:past.ml, ocaml, ocamldep, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamldep.opt -modules past.ml > past.ml.depends
+# Target: past_to_ast.ml.depends, tags: { extension:ml, file:past_to_ast.ml, ocaml, ocamldep, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamldep.opt -modules past_to_ast.ml > past_to_ast.ml.depends
+# Target: static.ml.depends, tags: { extension:ml, file:static.ml, ocaml, ocamldep, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamldep.opt -modules static.ml > static.ml.depends
+# Target: ast.cmo, tags: { byte, compile, extension:cmo, extension:ml, file:ast.cmo, file:ast.ml, implem, ocaml, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamlc.opt -c -o ast.cmo ast.ml
+# Target: parser.cmo, tags: { byte, compile, extension:cmo, extension:ml, file:parser.cmo, file:parser.ml, implem, ocaml, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamlc.opt -c -o parser.cmo parser.ml
+# Target: past.cmo, tags: { byte, compile, extension:cmo, extension:ml, file:past.cmo, file:past.ml, implem, ocaml, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamlc.opt -c -o past.cmo past.ml
+# Target: past_to_ast.cmo, tags: { byte, compile, extension:cmo, extension:ml, file:past_to_ast.cmo, file:past_to_ast.ml, implem, ocaml, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamlc.opt -c -o past_to_ast.cmo past_to_ast.ml
+# Target: static.cmo, tags: { byte, compile, extension:cmo, extension:ml, file:static.cmo, file:static.ml, implem, ocaml, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamlc.opt -c -o static.cmo static.ml
+# Target: slang.byte, tags: { byte, dont_link_with, extension:byte, file:slang.byte, link, ocaml, program, quiet }
+/Users/timothygriffin/.opam/4.02.3/bin/ocamlc.opt errors.cmo past.cmo ast.cmo parser.cmo lexer.cmo past_to_ast.cmo static.cmo front_end.cmo interp_0.cmo tests.cmo slang.cmo -o slang.byte
+# Compilation successful.
