@@ -1,6 +1,4 @@
 
-val verbose : bool ref 
-
 type address 
 
 

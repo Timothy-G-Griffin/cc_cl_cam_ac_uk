@@ -17,8 +17,6 @@ open Ast
 
 let complain = Errors.complain
 
-let verbose = ref false 
-
 type address = int 
 
 type value = 
@@ -200,9 +198,7 @@ let string_of_state = function
                ^ (string_of_value v) ^ ")"
 
 
-let heap_max = ref 1000 
-
-let heap  = Array.make !heap_max (INT 0)
+let heap  = Array.make Option.heap_max (INT 0)
 
 let next_address = ref 0 
 
@@ -267,7 +263,7 @@ let step = function
  | state -> complain ("step : malformed state = " ^ (string_of_state state) ^ "\n")
 
 let rec driver n state = 
-  let _ = if !verbose 
+  let _ = if Option.verbose 
           then print_string ("\nstate " ^ (string_of_int n) ^ " = \n" ^ (string_of_state state) ^ "\n")
           else () 
   in match state with 

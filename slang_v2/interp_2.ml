@@ -20,10 +20,6 @@ open Ast
 
 let complain = Errors.complain
 
-let heap_max = ref 1000 
-
-let verbose = ref false 
-
 type address = int 
 
 type var = string 
@@ -77,7 +73,7 @@ type state = code * env_value_stack
 
 (* The heap *) 
 
-let heap  = Array.make !heap_max (INT 0)
+let heap  = Array.make Option.heap_max (INT 0)
 
 let next_address = ref 0 
 
@@ -154,7 +150,7 @@ let string_of_state (c, evs) =
 
 (* allocate a new location in the heap *) 
 let allocate () = 
-    if !next_address < !heap_max 
+    if !next_address < Option.heap_max 
     then let a = !next_address in (next_address := a + 1; a) 
     else complain "runtime error: heap kaput"
 
@@ -265,7 +261,7 @@ let step = function
  | state -> complain ("step : bad state = " ^ (string_of_state state) ^ "\n")
 
 let rec driver n state = 
-  let _ = if !verbose 
+  let _ = if Option.verbose 
           then print_string ("\nState " ^ (string_of_int n) 
                              ^ " : " ^ (string_of_state state) ^ "\n")
           else () 
@@ -323,7 +319,7 @@ let rec compile = function
 (* interpret : expr -> value *) 
 let interpret e = 
     let c = compile e in 
-    let _ = if !verbose 
+    let _ = if Option.verbose 
             then print_string("Compile code =\n" ^ (string_of_code c) ^ "\n")
             else () 
     in driver 1 (c, [])

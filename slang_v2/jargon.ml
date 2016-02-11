@@ -1,11 +1,6 @@
 
 open Ast 
 
-let verbose = ref false 
-
-let stack_max = ref 1000
-let heap_max = ref 1000
-
 type code_index = int 
 type stack_index = int 
 type heap_index = int 
@@ -511,7 +506,7 @@ let step vm =
 (* DRIVER *) 
 
 let rec driver n vm = 
-    let _ = if !verbose 
+    let _ = if Option.verbose 
             then print_string ("========== state " ^ (string_of_int n) ^ 
                                " ==========\n" ^ (string_of_state vm) ^ "\n") 
             else () 
@@ -547,15 +542,15 @@ let load instr_list =
 
 let initial_state l = 
   let (code_array, c_bound) = load l in 
-  let _ = if !verbose 
+  let _ = if Option.verbose 
           then print_string ("\nInstalled Code = \n" ^ (string_of_installed_code(code_array, c_bound))) 
           else () in 
   { 
-    stack_bound = !stack_max; 
-    heap_bound = !heap_max; 
+    stack_bound = Option.stack_max; 
+    heap_bound = Option.heap_max; 
     code_bound = c_bound; 
-    stack = Array.make !stack_max (STACK_INT 0);
-    heap = Array.make !heap_max (HEAP_INT 0);
+    stack = Array.make Option.stack_max (STACK_INT 0);
+    heap = Array.make Option.heap_max (HEAP_INT 0);
     code = code_array; 
     sp = 0; 
     fp = 0; 
@@ -713,7 +708,7 @@ let compile e =
     let result = c          (* body of program *) 
                  @ [HALT]   (* stop the interpreter *) 
                  @ defs in  (* the function definitions *) 
-    let _ = if !verbose 
+    let _ = if Option.verbose 
             then print_string ("\nCompiled Code = \n" ^ (string_of_listing result))
             else () 
     in result 
