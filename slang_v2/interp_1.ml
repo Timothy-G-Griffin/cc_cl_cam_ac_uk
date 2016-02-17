@@ -262,7 +262,7 @@ let step = function
  | COMPUTE(IF (e2, e3, env) :: k,       BOOL false)  -> EXAMINE(e3, env, k)
 
  | COMPUTE(ASSIGN_FST (e2, env) :: k,            v)  -> EXAMINE(e2, env, ASSIGN v :: k)
- | COMPUTE(WHILE (e2, e3, env) :: k,     BOOL true)  -> EXAMINE(While(e2, e3), env, k)
+ | COMPUTE(WHILE (e1, e2, env) :: k,     BOOL true)  -> EXAMINE(Seq [e2; e1], env, WHILE(e1, e2, env)::k)
  | COMPUTE((TAIL (el, env)) :: k,     _)  ->  EXAMINE(Seq el, env, k)
  | state -> complain ("step : malformed state = " ^ (string_of_state state) ^ "\n")
 
