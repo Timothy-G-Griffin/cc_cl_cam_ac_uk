@@ -256,8 +256,8 @@ let step = function
  | (DEREF :: ds,            (V (REF a)) :: evs) -> (ds, V(heap.(a)) :: evs)
  | (MK_REF :: ds,                 (V v) :: evs) -> let a = allocate () in (heap.(a) <- v; 
                                                    (ds, V(REF a) :: evs))
- | ((WHILE(c1, c2)) :: ds,V(BOOL false) :: evs) -> (ds, evs) 
- | ((WHILE(c1, c2)) :: ds, V(BOOL true) :: evs) -> (c1 @ [WHILE(c1, c2)] @ ds, evs) 
+ | ((WHILE(c1, c2)) :: ds,V(BOOL false) :: evs) -> (ds, V(UNIT) :: evs) 
+ | ((WHILE(c1, c2)) :: ds, V(BOOL true) :: evs) -> (c2 @ [POP] @ c1 @ [WHILE(c1, c2)] @ ds, evs)
  | ((MK_CLOSURE c) :: ds,                  evs) -> (ds,  V(mk_fun(c, evs_to_env evs)) :: evs)
  | (MK_REC(f, c) :: ds,                    evs) -> (ds,  V(mk_rec(f, c, evs_to_env evs)) :: evs)
  | (APPLY :: ds,  V(CLOSURE (_, (c, env))) :: (V v) :: evs) 
