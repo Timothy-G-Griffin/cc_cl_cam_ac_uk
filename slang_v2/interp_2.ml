@@ -118,9 +118,9 @@ and string_of_instruction = function
  | MK_REF       -> "MK_REF"
  | PUSH v       -> "PUSH " ^ (string_of_value v) 
  | LOOKUP x     -> "LOOKUP " ^ x
- | TEST(c1, c2) -> "TEST(" ^ (string_of_code c1) ^ ", " ^ (string_of_code c1) ^ ")"
- | CASE(c1, c2) -> "CASE(" ^ (string_of_code c1) ^ ", " ^ (string_of_code c1) ^ ")"
- | WHILE(c1, c2) -> "WHILE(" ^ (string_of_code c1) ^ ", " ^ (string_of_code c1) ^ ")"
+ | TEST(c1, c2) -> "TEST(" ^ (string_of_code c1) ^ ", " ^ (string_of_code c2) ^ ")"
+ | CASE(c1, c2) -> "CASE(" ^ (string_of_code c1) ^ ", " ^ (string_of_code c2) ^ ")"
+ | WHILE(c1, c2) -> "WHILE(" ^ (string_of_code c1) ^ ", " ^ (string_of_code c2) ^ ")"
  | APPLY        -> "APPLY"
  | BIND x       -> "BIND " ^ x
  | SWAP         -> "SWAP"
