@@ -10,15 +10,15 @@ let report_expecting e msg t =
     let e_str = string_of_expr e in 
     let t_str = string_of_type t in 
     complain ("ERROR at location " ^ 
-	      loc_str ^ "\nExpression " ^ e_str ^ 
-	      "\nhas type " ^ t_str ^ ", but expecting" ^ msg) 
+              loc_str ^ "\nExpression " ^ e_str ^ 
+              "\nhas type " ^ t_str ^ ", but expecting " ^ msg) 
 
 let report_types_not_equal loc t1 t2 = 
     let loc_str = string_of_loc loc in 
     let t1_str = string_of_type t1 in 
     let t2_str = string_of_type t2 in 
     complain ("Error near location " ^ loc_str ^ 
-              "\nExpecting type " ^ t1_str ^ " to be equal to type" ^ t2_str)
+              "\nExpecting type " ^ t1_str ^ " to be equal to type " ^ t2_str)
 
 let report_type_mismatch (e1, t1) (e2, t2) = 
     let loc1 = loc_of_expr e1 in 
