@@ -311,15 +311,15 @@ let rec comp = function
  | Ref e          -> let (defs, c) = comp e in (defs, c @ [MK_REF])
  | Deref e        -> let (defs, c) = comp e in (defs, c @ [DEREF])
  | While(e1, e2)  -> let test_label = new_label () in 
-                      let end_label = new_label () in 
-                      let (defs1, c1) = comp e1 in  
-                      let (defs2, c2) = comp e2 in  
+                     let end_label = new_label () in 
+                     let (defs1, c1) = comp e1 in  
+                     let (defs2, c2) = comp e2 in  
                          (defs1 @ defs2, 
                           [LABEL test_label]
                            @ c1 
-   		           @ [TEST(end_label, None)] 
+                           @ [TEST(end_label, None)] 
                            @ c2 
-		           @ [GOTO (test_label, None); LABEL end_label])
+                           @ [POP; GOTO (test_label, None); LABEL end_label; PUSH UNIT])
  | Assign(e1, e2) -> let (defs1, c1) = comp e1 in  
                      let (defs2, c2) = comp e2 in 
                          (defs1 @ defs2, c1 @ c2 @ [ASSIGN])

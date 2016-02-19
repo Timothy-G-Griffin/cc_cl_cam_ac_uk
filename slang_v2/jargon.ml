@@ -676,9 +676,9 @@ let rec comp vmap = function
                          (defs1 @ defs2, 
                           [LABEL test_label]
                            @ c1 
-   		           @ [TEST(end_label, None)] 
+                           @ [TEST(end_label, None)] 
                            @ c2 
-		           @ [GOTO (test_label, None); LABEL end_label])
+                           @ [POP; GOTO (test_label, None); LABEL end_label; PUSH STACK_UNIT])
  | Assign(e1, e2) -> let (defs1, c1) = comp vmap e1 in  
                      let (defs2, c2) = comp vmap e2 in 
                          (defs1 @ defs2, c1 @ c2 @ [ASSIGN])
