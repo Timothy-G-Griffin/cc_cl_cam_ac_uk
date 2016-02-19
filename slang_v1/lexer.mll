@@ -71,7 +71,7 @@ rule token = parse
 (* note : not currently handling nested comments *) 
 and comment = parse
   | "*)" { token lexbuf } 
-  | newline { next_line lexbuf; token lexbuf } 
+  | newline { next_line lexbuf; comment lexbuf } 
   | _ { comment lexbuf } 
       
 
