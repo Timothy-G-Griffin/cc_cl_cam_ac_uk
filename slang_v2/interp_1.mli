@@ -1,6 +1,3 @@
-val verbose : bool ref 
-
-val heap_max : int ref 
 
 type address = int 
 

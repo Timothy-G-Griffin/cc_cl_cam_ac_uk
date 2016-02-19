@@ -20,8 +20,6 @@ open Ast
 
 let complain = Errors.complain
 
-let verbose = ref false 
-
 type address = int 
 
 type label = string 
@@ -180,9 +178,7 @@ let string_of_installed_code ()  =
 
 let get_instruction cp = Array.get !installed cp
 
-let heap_max = ref 1000 
-
-let heap  = Array.make !heap_max (INT 0)
+let heap  = Array.make Option.heap_max (INT 0)
 
 let next_address = ref 0 
 
@@ -370,13 +366,13 @@ let compile e =
     let result = c @               (* body of program *) 
                    [HALT]          (* stop the interpreter *) 
                    @ defs in       (* the function definitions *) 
-    let _ = if !verbose 
+    let _ = if Option.verbose 
             then print_string ("\nCompiled Code = \n" ^ (string_of_code result))
             else () 
     in result 
 
 let rec driver n state = 
-  let _ = if !verbose 
+  let _ = if Option.verbose 
           then print_string ("\nstate " ^ (string_of_int n) ^ ":" ^ (string_of_state state) ^ "\n")
           else () 
   in match state with 
@@ -417,7 +413,7 @@ let rec find lab = function
 let interpret e = 
     let c = compile e in 
     let _ = installed := load c in 
-    let _ = if !verbose 
+    let _ = if Option.verbose 
             then print_string ("\nInstalled Code = \n" ^ (string_of_installed_code()))
             else () 
     (* set the code pointer to 0 *) 

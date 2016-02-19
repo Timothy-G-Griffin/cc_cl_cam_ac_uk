@@ -1,9 +1,4 @@
 
-val verbose : bool ref 
-
-val stack_max : int ref 
-val heap_max : int ref 
-
 type code_index = int 
 type stack_index = int 
 type heap_index = int 

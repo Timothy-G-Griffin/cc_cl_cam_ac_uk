@@ -33,6 +33,22 @@ slang.native is faster.  However, you probably will
 not notice the difference on this project. 
 
 ===============================================
+Running
+===============================================
+
+Once you have built the project locally, you can invoke `slang.byte` directly:
+
+  ./slang.byte <file>
+
+To run the compiled version distributed with the sources, pass it to
+`ocamlrun` as follows:
+
+  ocamlrun slang.byte <file>
+
+(This is due to the OCaml bytecode file format. If you want to investigate,
+look inside the `slang.byte` file.)
+
+===============================================
 Files
 ===============================================
 
@@ -51,5 +67,3 @@ slang.ml       : main file, implementing the command-line for the interpreter an
 interp_0.ml    : The "definitional" interpreter. 
                  slang_v2 will add four interpreters ... 
 
-
-               
