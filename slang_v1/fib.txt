@@ -1,6 +1,0 @@
-Parsed result:
-LetFun(fib, (m, TEint, If(Op(Var(m), EQ, Integer(0)), Integer(1), If(Op(Var(m), EQ, Integer(1)), Integer(1), Op(App(Var(fib), Op(Var(m), SUB, Integer(1))), ADD, App(Var(fib), Op(Var(m), SUB, Integer(2))))))), TEint, App(Var(fib), Integer(3)))
-After static checks:
-LetRecFun(fib, (m, TEint, If(Op(Var(m), EQI, Integer(0)), Integer(1), If(Op(Var(m), EQI, Integer(1)), Integer(1), Op(App(Var(fib), Op(Var(m), SUB, Integer(1))), ADD, App(Var(fib), Op(Var(m), SUB, Integer(2))))))), TEint, App(Var(fib), Integer(3)))
-After translation:
-LetRecFun(fib, (m, If(Op(Var(m), EQI, Integer(0)), Integer(1), If(Op(Var(m), EQI, Integer(1)), Integer(1), Op(App(Var(fib), Op(Var(m), SUB, Integer(1))), ADD, App(Var(fib), Op(Var(m), SUB, Integer(2))))))), App(Var(fib), Integer(3)))
