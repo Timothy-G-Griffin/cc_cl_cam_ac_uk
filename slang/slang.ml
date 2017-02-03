@@ -26,7 +26,7 @@ let wrap file e interpret msg =
 
 let i0 (file, e)   = wrap file e (fun x -> Interp_0.string_of_value (Interp_0.interpret_top_level x)) "Interpreter 0"
 let i1 (file, e)   = wrap file e (fun x -> Interp_1.string_of_value (Interp_1.interpret x)) "Interpreter 1"
-let i2 (file, e)   = wrap file e (fun x -> Interp_2.string_of_value (Interp_2.interpret x)) "Interpreter 2"
+let i2 (file, e)   = wrap file e (fun x -> Interp_2.string_of_value (fst (Interp_2.interpret x))) "Interpreter 2"
 let i3 (file, e)   = wrap file e (fun x -> Interp_3.string_of_value (Interp_3.interpret x)) "Interpreter 3"
 let i4 (file, e)   = wrap file e (fun x -> Jargon.string_of_value (Jargon.interpret x)) "Jargon VM"
 

@@ -10,7 +10,7 @@ A high-level stack-oriented abstract machine with compiler.
 What do I mean by "high-level"? 
 ---Code is still tree-structured. 
 ---Complex values are pushed onto value stack.  
----Heap used only for references. 
+---Slang state (heap) used only for references. 
 ---Code is maintained on a code stack. 
 ---Program variables contained in code.
 *) 
@@ -67,15 +67,13 @@ and env = binding list
 
 type env_or_value = EV of env | V of value 
 
-type env_value_stack = env_or_value list 
+type env_value_stack = env_or_value list
 
-type state = code * env_value_stack 
+(* This is the the slang program state --- that is, values for references *) 
+(* It is an array of referenced values together with next unallocated address *)
+type state = (value array) * int 
 
-(* The heap *) 
-
-let heap  = Array.make Option.heap_max (INT 0)
-
-let next_address = ref 0 
+type interp_state = code * env_value_stack * state 
 
 (* Printing *) 
 
@@ -134,25 +132,37 @@ let string_of_env_or_value = function
 
 let string_of_env_value_stack = string_of_list ";\n " string_of_env_or_value 
 
-let string_of_heap ()  = 
+let string_of_state (heap, i)  = 
     let rec aux k = 
-            if !next_address < k 
+            if i < k 
 	    then "" 
 	    else (string_of_int k) ^ " -> " ^ (string_of_value (heap.(k))) ^ "\n" ^ (aux (k+1)) 
-    in "\nHeap = \n" ^ (aux 0) 
+    in if i = 0
+       then ""
+       else "\nHeap = \n" ^ (aux 0) 
 
-let string_of_state (c, evs) = 
+let string_of_interp_state (c, evs, s) = 
      "\nCode Stack = \n" ^ (string_of_code c) 
      ^ "\nEnv/Value Stack = \n" ^ (string_of_env_value_stack evs) 
-     ^ (if !next_address = 0 then "" else string_of_heap()) 
+     ^ (string_of_state(s)) 
 
 (* The "MACHINE" *) 
 
-(* allocate a new location in the heap *) 
-let allocate () = 
-    if !next_address < Option.heap_max 
-    then let a = !next_address in (next_address := a + 1; a) 
+(* allocate a new location in the heap
+   and give it value v
+*) 
+let allocate (heap, i) v = 
+    if i < Option.heap_max 
+    then let _ = heap.(i) <- v
+         in (i, (heap, i+1))
     else complain "runtime error: heap kaput"
+
+let deref (heap, _) a = heap.(a)
+
+let assign (heap, i) a v =
+    let _ = heap.(a) <- v
+    in (heap, i) 
+
 
 (* update : (env * binding) -> env *) 
 let update(env, (x, v)) = (x, v) :: env 
@@ -227,46 +237,45 @@ let do_oper = function
   | (op, _, _)  -> complain ("malformed binary operator: " ^ (string_of_oper op))
 
 (*
-    val step : state -> state 
-             = (code * env_value_stack) -> (code * env_value_stack) 
+    val step : interp_state -> interp_state 
+             = (code * env_value_stack * state) -> (code * env_value_stack * state) 
 *) 
 let step = function 
-(* (code stack,                value/env stack) -> (code stack,  value/env stack) *) 
- | ((PUSH v) :: ds,                        evs) -> (ds, (V v) :: evs)
- | (POP :: ds,                        s :: evs) -> (ds, evs) 
- | (SWAP :: ds,                s1 :: s2 :: evs) -> (ds, s2 :: s1 :: evs) 
- | ((BIND x) :: ds,               (V v) :: evs) -> (ds, EV([(x, v)]) :: evs) 
- | ((LOOKUP x) :: ds,                      evs) -> (ds, V(search(evs, x)) :: evs)
- | ((UNARY op) :: ds,             (V v) :: evs) -> (ds, V(do_unary(op, v)) :: evs) 
- | ((OPER op) :: ds,   (V v2) :: (V v1) :: evs) -> (ds, V(do_oper(op, v1, v2)) :: evs)
- | (MK_PAIR :: ds,     (V v2) :: (V v1) :: evs) -> (ds, V(PAIR(v1, v2)) :: evs)
- | (FST :: ds,           V(PAIR (v, _)) :: evs) -> (ds, (V v) :: evs)
- | (SND :: ds,           V(PAIR (_, v)) :: evs) -> (ds, (V v) :: evs)
- | (MK_INL :: ds,                 (V v) :: evs) -> (ds, V(INL v) :: evs)
- | (MK_INR :: ds,                 (V v) :: evs) -> (ds, V(INR v) :: evs)
- | (CASE (c1,  _) :: ds,         V(INL v)::evs) -> (c1 @ ds, (V v) :: evs) 
- | (CASE ( _, c2) :: ds,         V(INR v)::evs) -> (c2 @ ds, (V v) :: evs) 
- | ((TEST(c1, c2)) :: ds,  V(BOOL true) :: evs) -> (c1 @ ds, evs) 
- | ((TEST(c1, c2)) :: ds, V(BOOL false) :: evs) -> (c2 @ ds, evs) 
- | (ASSIGN :: ds,  (V v) :: (V (REF a)) :: evs) -> (heap.(a) <- v; (ds, V(UNIT) :: evs))
- | (DEREF :: ds,            (V (REF a)) :: evs) -> (ds, V(heap.(a)) :: evs)
- | (MK_REF :: ds,                 (V v) :: evs) -> let a = allocate () in (heap.(a) <- v; 
-                                                   (ds, V(REF a) :: evs))
- | ((WHILE(c1, c2)) :: ds,V(BOOL false) :: evs) -> (ds, V(UNIT) :: evs) 
- | ((WHILE(c1, c2)) :: ds, V(BOOL true) :: evs) -> (c2 @ [POP] @ c1 @ [WHILE(c1, c2)] @ ds, evs)
- | ((MK_CLOSURE c) :: ds,                  evs) -> (ds,  V(mk_fun(c, evs_to_env evs)) :: evs)
- | (MK_REC(f, c) :: ds,                    evs) -> (ds,  V(mk_rec(f, c, evs_to_env evs)) :: evs)
- | (APPLY :: ds,  V(CLOSURE (_, (c, env))) :: (V v) :: evs) 
-                                                -> (c @ ds, (V v) :: (EV env) :: evs)
- | state -> complain ("step : bad state = " ^ (string_of_state state) ^ "\n")
+(* (code stack,         value/env stack, state) -> (code stack,  value/env stack, state) *) 
+ | ((PUSH v) :: ds,                        evs, s) -> (ds, (V v) :: evs, s)
+ | (POP :: ds,                        e :: evs, s) -> (ds, evs, s) 
+ | (SWAP :: ds,                e1 :: e2 :: evs, s) -> (ds, e2 :: e1 :: evs, s) 
+ | ((BIND x) :: ds,               (V v) :: evs, s) -> (ds, EV([(x, v)]) :: evs, s) 
+ | ((LOOKUP x) :: ds,                      evs, s) -> (ds, V(search(evs, x)) :: evs, s)
+ | ((UNARY op) :: ds,             (V v) :: evs, s) -> (ds, V(do_unary(op, v)) :: evs, s) 
+ | ((OPER op) :: ds,   (V v2) :: (V v1) :: evs, s) -> (ds, V(do_oper(op, v1, v2)) :: evs, s)
+ | (MK_PAIR :: ds,     (V v2) :: (V v1) :: evs, s) -> (ds, V(PAIR(v1, v2)) :: evs, s)
+ | (FST :: ds,           V(PAIR (v, _)) :: evs, s) -> (ds, (V v) :: evs, s)
+ | (SND :: ds,           V(PAIR (_, v)) :: evs, s) -> (ds, (V v) :: evs, s)
+ | (MK_INL :: ds,                 (V v) :: evs, s) -> (ds, V(INL v) :: evs, s)
+ | (MK_INR :: ds,                 (V v) :: evs, s) -> (ds, V(INR v) :: evs, s)
+ | (CASE (c1,  _) :: ds,         V(INL v)::evs, s) -> (c1 @ ds, (V v) :: evs, s) 
+ | (CASE ( _, c2) :: ds,         V(INR v)::evs, s) -> (c2 @ ds, (V v) :: evs, s) 
+ | ((TEST(c1, c2)) :: ds,  V(BOOL true) :: evs, s) -> (c1 @ ds, evs, s) 
+ | ((TEST(c1, c2)) :: ds, V(BOOL false) :: evs, s) -> (c2 @ ds, evs, s)
+ | (ASSIGN :: ds,  (V v) :: (V (REF a)) :: evs, s) -> (ds, V(UNIT) :: evs, assign s a v)
+ | (DEREF :: ds,            (V (REF a)) :: evs, s) -> (ds, V(deref s a) :: evs, s)
+ | (MK_REF :: ds,                 (V v) :: evs, s) -> let (a, s') = allocate s v in (ds, V(REF a) :: evs, s')
+ | ((WHILE(c1, c2)) :: ds,V(BOOL false) :: evs, s) -> (ds, V(UNIT) :: evs, s) 
+ | ((WHILE(c1, c2)) :: ds, V(BOOL true) :: evs, s) -> (c2 @ [POP] @ c1 @ [WHILE(c1, c2)] @ ds, evs, s)
+ | ((MK_CLOSURE c) :: ds,                  evs, s) -> (ds,  V(mk_fun(c, evs_to_env evs)) :: evs, s)
+ | (MK_REC(f, c) :: ds,                    evs, s) -> (ds,  V(mk_rec(f, c, evs_to_env evs)) :: evs, s)
+ | (APPLY :: ds,  V(CLOSURE (_, (c, env))) :: (V v) :: evs, s) 
+                                                   -> (c @ ds, (V v) :: (EV env) :: evs, s)
+ | state -> complain ("step : bad state = " ^ (string_of_interp_state state) ^ "\n")
 
 let rec driver n state = 
   let _ = if Option.verbose 
           then print_string ("\nState " ^ (string_of_int n) 
-                             ^ " : " ^ (string_of_state state) ^ "\n")
+                             ^ " : " ^ (string_of_interp_state state) ^ "\n")
           else () 
   in match state with 
-     | ([], [V v]) -> v 
+     | ([], [V v], s) -> (v, s)  
      | _ -> driver (n + 1) (step state) 
 
 
@@ -316,13 +325,19 @@ let rec compile = function
        (compile e) @ leave_scope
 
 
-(* interpret : expr -> value *) 
+(* The initial Slang state is the Slang state : all locations contain 0 *) 
+
+let initial_state  = (Array.make Option.heap_max (INT 0), 0)
+
+let initial_env = [] 
+
+(* interpret : expr -> (value * state) *) 
 let interpret e = 
     let c = compile e in 
     let _ = if Option.verbose 
             then print_string("Compile code =\n" ^ (string_of_code c) ^ "\n")
             else () 
-    in driver 1 (c, [])
+    in driver 1 (c, initial_env, initial_state)
 
 
 

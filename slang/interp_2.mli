@@ -47,17 +47,20 @@ and env = binding list
 
 type env_or_value = EV of env | V of value 
 
-type env_value_stack = env_or_value list 
+type env_value_stack = env_or_value list
 
-type state = code * env_value_stack 
+(* array of referenced values together with next unallocated address *) 
+type state = (value array) * int 
 
-val step : state -> state 
+type interp_state = code * env_value_stack * state 
+
+val step : interp_state -> interp_state 
 
 val compile : Ast.expr -> code 
 
-val driver : int -> state -> value 
+val driver : int -> interp_state -> value * state
 
-val interpret : Ast.expr -> value 
+val interpret : Ast.expr -> value * state 
 
 val string_of_value : value -> string 
 
