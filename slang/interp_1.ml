@@ -126,6 +126,7 @@ let do_oper = function
   | (ADD,  INT m,   INT n)  -> INT (m + n)
   | (SUB,  INT m,   INT n)  -> INT (m - n)
   | (MUL,  INT m,   INT n)  -> INT (m * n)
+  | (DIV,  INT m,   INT n)  -> INT (m / n)
   | (op, _, _)  -> complain ("malformed binary operator: " ^ (string_of_oper op))
 
 
