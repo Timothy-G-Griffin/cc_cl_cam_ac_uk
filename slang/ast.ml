@@ -1,7 +1,7 @@
 
 type var = string 
 
-type oper = ADD | MUL | SUB | LT | AND | OR | EQB | EQI
+type oper = ADD | MUL | DIV | SUB | LT | AND | OR | EQB | EQI
 
 type unary_oper = NEG | NOT | READ 
 
@@ -49,6 +49,7 @@ let pp_uop = function
 let pp_bop = function 
   | ADD -> "+" 
   | MUL  -> "*" 
+  | DIV  -> "/" 
   | SUB -> "-" 
   | LT   -> "<" 
   | EQI   -> "eqi" 
@@ -124,6 +125,7 @@ let string_of_uop = function
 let string_of_bop = function 
   | ADD -> "ADD" 
   | MUL  -> "MUL" 
+  | DIV  -> "DIV" 
   | SUB -> "SUB" 
   | LT   -> "LT" 
   | EQI   -> "EQI" 

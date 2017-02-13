@@ -14,7 +14,7 @@ type type_expr =
    | TEproduct of type_expr * type_expr
    | TEunion of type_expr * type_expr
 
-type oper = ADD | MUL | SUB | LT | AND | OR | EQ | EQB | EQI
+type oper = ADD | MUL | DIV | SUB | LT | AND | OR | EQ | EQB | EQI
 
 type unary_oper = NEG | NOT 
 
