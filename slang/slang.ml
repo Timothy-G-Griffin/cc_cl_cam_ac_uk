@@ -53,7 +53,7 @@ let show_output describe string_out =
     then ()
     else begin
        (if Option.verbose
-       then print_string ("\n" ^ describe ^ " : \n")
+       then print_string ("\n" ^  describe ^ " \n")
        else ()
        );
        print_string ("output> " ^ string_out ^ "\n")

@@ -4,6 +4,7 @@
 let infile         = ref ""
 let verbose        = ref false
 let verbose_front  = ref false
+let verbose_tree  = ref false
 let run_tests      = ref false
 let use_i0         = ref false
 let use_i1         = ref false
@@ -24,6 +25,7 @@ let heap_max       = ref 1000
 let option_spec = [
      ("-V",    Arg.Set verbose_front, "verbose front end");
      ("-v",    Arg.Set verbose,       "verbose interpreter(s)");
+     ("-T",    Arg.Set verbose_tree,       "verbose output in the form of tree (currently only frontend)");
      ("-c",    Arg.Set show_compiled, "show compiled code (but don't run it)");
      ("-i0",   Arg.Set use_i0,        "Interpreter 0");
      ("-i1",   Arg.Set use_i1,        "Interpreter 1" );
@@ -45,6 +47,7 @@ let () = Arg.parse option_spec set_infile usage_msg
 let infile        = !infile
 let verbose       = !verbose
 let verbose_front = !verbose_front
+let verbose_tree = !verbose_tree
 let run_tests     = !run_tests
 let use_i0        = !use_i0
 let use_i1        = !use_i1
