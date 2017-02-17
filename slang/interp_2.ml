@@ -187,11 +187,6 @@ let lookup_opt (env, x) =
           else aux rest  
       in aux env 
 
-let lookup (env, x) = 
-    match lookup_opt (env, x) with 
-    | None -> complain (x ^ " is not defined!\n")
-    | Some v -> v 
-
 let rec search (evs, x) = 
   match evs with 
   | [] -> complain (x ^ " is not defined!\n")
