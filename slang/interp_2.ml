@@ -32,7 +32,8 @@ type value =
      | PAIR of value * value 
      | INL of value 
      | INR of value 
-     | CLOSURE of bool * closure    
+     | CLOSURE of closure    
+     | REC_CLOSURE of code
 
 and closure = code * env 
 
@@ -94,7 +95,8 @@ let rec string_of_value = function
      | PAIR(v1, v2)    -> "(" ^ (string_of_value v1) ^ ", " ^ (string_of_value v2) ^ ")"
      | INL v           -> "inl(" ^ (string_of_value v) ^ ")"
      | INR  v          -> "inr(" ^ (string_of_value v) ^ ")"
-     | CLOSURE(b, cl) -> "CLOSURE(" ^ (string_of_bool b) ^ ", " ^ (string_of_closure cl) ^ ")"
+     | CLOSURE(cl) -> "CLOSURE(" ^ (string_of_closure cl) ^ ")"
+     | REC_CLOSURE(c) -> "REC_CLOSURE(" ^ (string_of_code c) ^ ")"
 
 and string_of_closure (c, env) = 
    "(" ^ (string_of_code c) ^ ", " ^ (string_of_env env) ^ ")"
@@ -157,8 +159,8 @@ let allocate () =
 (* update : (env * binding) -> env *) 
 let update(env, (x, v)) = (x, v) :: env 
 
-let mk_fun(c, env) = CLOSURE(false, (c, env)) 
-let mk_rec(f, c, env) = CLOSURE(false, (c, (f, CLOSURE(true, (c, []))) :: env))
+let mk_fun(c, env) = CLOSURE(c, env) 
+let mk_rec(f, c, env) = CLOSURE(c, (f, REC_CLOSURE(c))::env)
 
 (* 
    in interp_0: 
@@ -180,8 +182,7 @@ let lookup_opt (env, x) =
       | (y, v) :: rest -> 
           if x = y 
           then Some(match v with 
-               | CLOSURE(true, (body, _)) -> 
-                   CLOSURE(false, (body, (x, CLOSURE(true, (body, []))) :: rest))
+               | REC_CLOSURE(body) -> mk_rec(x, body, rest)
                | _ -> v)
           else aux rest  
       in aux env 
@@ -257,7 +258,7 @@ let step = function
  | ((WHILE(c1, c2)) :: ds, V(BOOL true) :: evs) -> (c2 @ [POP] @ c1 @ [WHILE(c1, c2)] @ ds, evs)
  | ((MK_CLOSURE c) :: ds,                  evs) -> (ds,  V(mk_fun(c, evs_to_env evs)) :: evs)
  | (MK_REC(f, c) :: ds,                    evs) -> (ds,  V(mk_rec(f, c, evs_to_env evs)) :: evs)
- | (APPLY :: ds,  V(CLOSURE (_, (c, env))) :: (V v) :: evs) 
+ | (APPLY :: ds,  V(CLOSURE (c, env)) :: (V v) :: evs) 
                                                 -> (c @ ds, (V v) :: (EV env) :: evs)
  | state -> complain ("step : bad state = " ^ (string_of_state state) ^ "\n")
 
