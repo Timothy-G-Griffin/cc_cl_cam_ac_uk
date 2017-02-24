@@ -32,7 +32,8 @@ type value =
      | PAIR of value * value 
      | INL of value 
      | INR of value 
-     | CLOSURE of bool * closure    
+     | CLOSURE of closure    
+     | REC_CLOSURE of code
 
 and closure = code * env 
 
@@ -92,7 +93,8 @@ let rec string_of_value = function
      | PAIR(v1, v2)    -> "(" ^ (string_of_value v1) ^ ", " ^ (string_of_value v2) ^ ")"
      | INL v           -> "inl(" ^ (string_of_value v) ^ ")"
      | INR  v          -> "inr(" ^ (string_of_value v) ^ ")"
-     | CLOSURE(b, cl) -> "CLOSURE(" ^ (string_of_bool b) ^ ", " ^ (string_of_closure cl) ^ ")"
+     | CLOSURE(cl) -> "CLOSURE(" ^ (string_of_closure cl) ^ ")"
+     | REC_CLOSURE(c) -> "REC_CLOSURE(" ^ (string_of_code c) ^ ")"
 
 and string_of_closure (c, env) = 
    "(" ^ (string_of_code c) ^ ", " ^ (string_of_env env) ^ ")"
@@ -167,8 +169,8 @@ let assign (heap, i) a v =
 (* update : (env * binding) -> env *) 
 let update(env, (x, v)) = (x, v) :: env 
 
-let mk_fun(c, env) = CLOSURE(false, (c, env)) 
-let mk_rec(f, c, env) = CLOSURE(false, (c, (f, CLOSURE(true, (c, []))) :: env))
+let mk_fun(c, env) = CLOSURE(c, env) 
+let mk_rec(f, c, env) = CLOSURE(c, (f, REC_CLOSURE(c))::env)
 
 (* 
    in interp_0: 
@@ -190,16 +192,10 @@ let lookup_opt (env, x) =
       | (y, v) :: rest -> 
           if x = y 
           then Some(match v with 
-               | CLOSURE(true, (body, _)) -> 
-                   CLOSURE(false, (body, (x, CLOSURE(true, (body, []))) :: rest))
+               | REC_CLOSURE(body) -> mk_rec(x, body, rest)
                | _ -> v)
           else aux rest  
       in aux env 
-
-let lookup (env, x) = 
-    match lookup_opt (env, x) with 
-    | None -> complain (x ^ " is not defined!\n")
-    | Some v -> v 
 
 let rec search (evs, x) = 
   match evs with 
@@ -242,6 +238,7 @@ let do_oper = function
              = (code * env_value_stack * state) -> (code * env_value_stack * state) 
 *) 
 let step = function 
+
 (* (code stack,         value/env stack, state) -> (code stack,  value/env stack, state) *) 
  | ((PUSH v) :: ds,                        evs, s) -> (ds, (V v) :: evs, s)
  | (POP :: ds,                        e :: evs, s) -> (ds, evs, s) 
@@ -266,7 +263,7 @@ let step = function
  | ((WHILE(c1, c2)) :: ds, V(BOOL true) :: evs, s) -> (c2 @ [POP] @ c1 @ [WHILE(c1, c2)] @ ds, evs, s)
  | ((MK_CLOSURE c) :: ds,                  evs, s) -> (ds,  V(mk_fun(c, evs_to_env evs)) :: evs, s)
  | (MK_REC(f, c) :: ds,                    evs, s) -> (ds,  V(mk_rec(f, c, evs_to_env evs)) :: evs, s)
- | (APPLY :: ds,  V(CLOSURE (_, (c, env))) :: (V v) :: evs, s) 
+ | (APPLY :: ds,  V(CLOSURE (c, env)) :: (V v) :: evs, s) 
                                                    -> (c @ ds, (V v) :: (EV env) :: evs, s)
  | state -> complain ("step : bad state = " ^ (string_of_interp_state state) ^ "\n")
 

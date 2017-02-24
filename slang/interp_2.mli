@@ -11,7 +11,8 @@ type value =
      | PAIR of value * value 
      | INL of value 
      | INR of value 
-     | CLOSURE of bool * closure    
+     | CLOSURE of closure    
+     | REC_CLOSURE of code
 
 and closure = code * env 
 
