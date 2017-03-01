@@ -9,8 +9,8 @@ type value =
      | PAIR of value * value 
      | INL of value 
      | INR of value 
-     (* bool flag = true means closure in recursive environment! *) 
-     | CLOSURE of bool * closure  
+     | REC_CLOSURE of closure
+     | CLOSURE of closure  
 
 and closure = Ast.var * Ast.expr * env 
 

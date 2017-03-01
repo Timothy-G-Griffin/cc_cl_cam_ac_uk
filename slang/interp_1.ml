@@ -27,8 +27,8 @@ type value =
      | PAIR of value * value 
      | INL of value 
      | INR of value 
-     (* bool flag = true means closure in recursive environment! *) 
-     | CLOSURE of bool * closure 
+     | REC_CLOSURE of closure
+     | CLOSURE of closure 
 
 and closure = var * expr * env 
 
@@ -83,13 +83,13 @@ let rec filter_env fvars = function
 let mk_fun(x, body, env) = 
     let fvars = Free_vars.free_vars ([x], body) in 
     let smaller_env = filter_env fvars env in 
-      CLOSURE(false, (x, body, smaller_env))
+      CLOSURE((x, body, smaller_env))
 
 let mk_rec_fun(f, x, body, env) = 
     let fvars = Free_vars.free_vars ([f; x], body) in 
     let smaller_env = filter_env fvars env in 
-    let f_binding = (f, CLOSURE(true, (x, body, []))) in 
-       CLOSURE(false, (x, body, f_binding :: smaller_env))
+    let f_binding = (f, REC_CLOSURE((x, body, []))) in 
+       CLOSURE((x, body, f_binding :: smaller_env))
 
 (* 
       for a recursive function f we want 
@@ -102,8 +102,8 @@ let lookup (env, x) =
       | (y, v) :: rest -> 
           if x = y 
           then match v with 
-             | CLOSURE(true, (z, body, _)) -> 
-                 CLOSURE(false, (z, body, (y, CLOSURE(true, (z, body, []))) :: rest))
+             | REC_CLOSURE((z, body, _)) -> 
+                 CLOSURE((z, body, (y, REC_CLOSURE((z, body, []))) :: rest))
              | _ -> v 
           else aux rest  
       in aux env 
@@ -139,14 +139,15 @@ let string_of_list sep f l =
 
 
 let rec string_of_value = function 
-     | REF a          -> "REF(" ^ (string_of_int a) ^ ")"
-     | BOOL b         -> string_of_bool b
-     | INT n          -> string_of_int n 
-     | UNIT           -> "UNIT"
-     | PAIR(v1, v2)   -> "PAIR(" ^ (string_of_value v1) ^ ", " ^ (string_of_value v2) ^ ")"
-     | INL v          -> "INL(" ^ (string_of_value v) ^ ")"
-     | INR  v         -> "INR(" ^ (string_of_value v) ^ ")"
-     | CLOSURE(b, cl) -> "CLOSURE(" ^ (string_of_bool b) ^ ", " ^ (string_of_closure cl) ^ ")"
+     | REF a           -> "REF(" ^ (string_of_int a) ^ ")"
+     | BOOL b          -> string_of_bool b
+     | INT n           -> string_of_int n 
+     | UNIT            -> "UNIT"
+     | PAIR(v1, v2)    -> "PAIR(" ^ (string_of_value v1) ^ ", " ^ (string_of_value v2) ^ ")"
+     | INL v           -> "INL(" ^ (string_of_value v) ^ ")"
+     | INR  v          -> "INR(" ^ (string_of_value v) ^ ")"
+     | CLOSURE(cl)     -> "CLOSURE(" ^ (string_of_closure cl) ^ ")"
+     | REC_CLOSURE(cl) -> "REC_CLOSURE(" ^ string_of_closure cl ^ ")"
 
 and string_of_closure (x, e, env) = x ^ ", " ^ (Ast.string_of_expr e) ^  ", " ^ (string_of_env env)
 
@@ -250,7 +251,8 @@ let step = function
  | COMPUTE(WHILE (_, _, _) :: k,         BOOL false) -> COMPUTE(k, UNIT) 
  (* COMPUTE --> EXAMINE *) 
  | COMPUTE(OPER_FST (e2, env, op) :: k,         v1)  -> EXAMINE(e2, env, OPER (op, v1) :: k)
- | COMPUTE((APPLY v2) :: k, CLOSURE(_, (x, body, env)))  -> EXAMINE(body, update(env, (x, v2)), k)
+ | COMPUTE((APPLY v2) :: k, CLOSURE((x, body, env)))  -> EXAMINE(body, update(env, (x, v2)), k)
+ | COMPUTE((APPLY v2) :: k, REC_CLOSURE((x, body, env))) -> EXAMINE(body, update(env, (x, v2)), k)
  | COMPUTE(ARG (e2, env) :: k,                   v)  -> EXAMINE(e2, env, (APPLY v) :: k)
  | COMPUTE(PAIR_FST (e2, env) :: k,             v1)  -> EXAMINE(e2, env, (MKPAIR v1) :: k)
  | COMPUTE(CASE (x1, e1, x2, e2, env) :: k,  INL v)  -> EXAMINE(e1, update(env, (x1, v)), k) 
