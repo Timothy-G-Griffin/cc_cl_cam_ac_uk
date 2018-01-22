@@ -89,7 +89,7 @@ jargon.ml      : Could be called "interp_4".
                  Complex values now stored in heap. 
                  Value stack items now have an address. 
 interp_1.ml    : The "missing link" between interp_0
-                 and interp_0.  Best understood in terms
+                 and interp_2.  Best understood in terms
                  of a CPS translation on interp_0 itself. 
 
 
