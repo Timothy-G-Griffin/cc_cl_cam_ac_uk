@@ -71,8 +71,15 @@ rule token = parse
 
 (* note : not currently handling nested comments *) 
 and comment = parse
-  | "*)" { token lexbuf } 
-  | newline { next_line lexbuf; token lexbuf } 
-  | _ { comment lexbuf } 
-      
+  | "*)" { token lexbuf }
+  | "(*" { nested_comment lexbuf; comment lexbuf }
+  | newline { next_line lexbuf; comment lexbuf }
+  | eof { Errors.complain ("Lexer : Unexpected end-of-file. Comment is not terminated.") }
+  | _ { comment lexbuf }
 
+and nested_comment = parse
+  | "*)" { }
+  | "(*" { nested_comment lexbuf; nested_comment lexbuf }
+  | newline { next_line lexbuf; nested_comment lexbuf }
+  | eof { Errors.complain ("Lexer : Unexpected end-of-file. Comment is not terminated.") }
+  | _ { nested_comment lexbuf }
