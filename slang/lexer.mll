@@ -2,7 +2,7 @@
   open Parser
   open Lexing 
 
-(* next_line copied from  Ch. 16 of "Real Workd Ocaml" *) 
+(* next_line copied from  Ch. 16 of "Real World Ocaml" *) 
 let next_line lexbuf =
   let pos = lexbuf.lex_curr_p in
   lexbuf.lex_curr_p <-
@@ -69,7 +69,6 @@ rule token = parse
   | _ { Errors.complain ("Lexer : Illegal character " ^ (Char.escaped(Lexing.lexeme_char lexbuf 0)))
 }
 
-(* note : not currently handling nested comments *) 
 and comment = parse
   | "*)" { token lexbuf }
   | "(*" { nested_comment lexbuf; comment lexbuf }
