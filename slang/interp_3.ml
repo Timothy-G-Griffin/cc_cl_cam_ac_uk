@@ -260,21 +260,21 @@ let new_label =
     in get 
 
 let rec comp = function 
-  | Unit           -> ([], [PUSH UNIT]) 
-  | Integer n      -> ([], [PUSH (INT n)]) 
-  | Boolean b      -> ([], [PUSH (BOOL b)])
-  | Var x          -> ([], [LOOKUP x]) 
-  | UnaryOp(op, e) -> let (defs, c) = comp e in  (defs, c @ [UNARY op])
-  | Op(e1, op, e2) -> let (defs1, c1) = comp e1 in  
-                      let (defs2, c2) = comp e2 in  
+  | Unit               -> ([], [PUSH UNIT]) 
+  | Integer n          -> ([], [PUSH (INT n)]) 
+  | Boolean b          -> ([], [PUSH (BOOL b)])
+  | Var x              -> ([], [LOOKUP x]) 
+  | UnaryOp(op, e)     -> let (defs, c) = comp e in  (defs, c @ [UNARY op])
+  | Op(e1, op, e2)     -> let (defs1, c1) = comp e1 in  
+                          let (defs2, c2) = comp e2 in  
                           (defs1 @ defs2, c1 @ c2 @ [OPER op])
-  | Pair(e1, e2)   -> let (defs1, c1) = comp e1 in  
-                      let (defs2, c2) = comp e2 in  
+  | Tuple(e1::e2::_)   -> let (defs1, c1) = comp e1 in  
+                          let (defs2, c2) = comp e2 in  
                           (defs1 @ defs2, c1 @ c2 @ [MK_PAIR]) 
-  | Fst e          -> let (defs, c) = comp e in (defs, c @ [FST])
-  | Snd e          -> let (defs, c) = comp e in (defs, c @ [SND])
-  | Inl e          -> let (defs, c) = comp e in (defs, c @ [MK_INL])
-  | Inr e          -> let (defs, c) = comp e in (defs, c @ [MK_INR])
+  | Fst e              -> let (defs, c) = comp e in (defs, c @ [FST])
+  | Snd e              -> let (defs, c) = comp e in (defs, c @ [SND])
+  | Inl e              -> let (defs, c) = comp e in (defs, c @ [MK_INL])
+  | Inr e              -> let (defs, c) = comp e in (defs, c @ [MK_INR])
   | Case(e1, (x1, e2), (x2, e3)) -> 
                       let inr_label = new_label () in 
                       let after_inr_label = new_label () in 

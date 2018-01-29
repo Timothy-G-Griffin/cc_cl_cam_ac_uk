@@ -8,10 +8,10 @@ type loc = Lexing.position
 type type_expr = 
    | TEint 
    | TEbool 
-   | TEunit 
+   | TEunit
    | TEref of type_expr 
    | TEarrow of type_expr * type_expr
-   | TEproduct of type_expr * type_expr
+   | TEproduct of type_expr list
    | TEunion of type_expr * type_expr
 
 type oper = ADD | MUL | DIV | SUB | LT | AND | OR | EQ | EQB | EQI
@@ -27,7 +27,7 @@ type expr =
        | UnaryOp of loc * unary_oper * expr
        | Op of loc * expr * oper * expr
        | If of loc * expr * expr * expr
-       | Pair of loc * expr * expr
+       | Tuple of loc * (expr list)
        | Fst of loc * expr 
        | Snd of loc * expr 
        | Inl of loc * type_expr * expr 

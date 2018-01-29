@@ -38,7 +38,7 @@ let rec translate_expr = function
     | Past.UnaryOp(_, op, e) -> Ast.UnaryOp(translate_uop op, translate_expr e)
     | Past.Op(_, e1, op, e2) -> Ast.Op(translate_expr e1, translate_bop op, translate_expr e2)
     | Past.If(_, e1, e2, e3) -> Ast.If(translate_expr e1, translate_expr e2, translate_expr e3)
-    | Past.Pair(_, e1, e2)   -> Ast.Pair(translate_expr e1, translate_expr e2)
+    | Past.Tuple(_, el)      -> Ast.Tuple(List.map translate_expr el)
     | Past.Fst(_, e)         -> Ast.Fst(translate_expr e)
     | Past.Snd(_, e)         -> Ast.Snd(translate_expr e)
     | Past.Inl(_, _, e)       -> Ast.Inl(translate_expr e)

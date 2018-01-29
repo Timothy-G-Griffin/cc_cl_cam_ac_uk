@@ -53,7 +53,7 @@ simple_expr:
 | TRUE                               { Past.Boolean (get_loc(), true)}
 | FALSE                              { Past.Boolean (get_loc(), false)}
 | LPAREN expr RPAREN                 { $2 }
-| LPAREN expr COMMA expr RPAREN      { Past.Pair(get_loc(), $2, $4) }
+| LPAREN expr COMMA expr RPAREN      { Past.Tuple(get_loc(), [$2; $4]) }
 | NOT simple_expr               { Past.UnaryOp(get_loc(), Past.NOT, $2) }
 | BANG simple_expr              { Past.Deref(get_loc(), $2) }
 | REF simple_expr               { Past.Ref(get_loc(), $2) }
@@ -99,7 +99,7 @@ texpr:
 | INTTYPE                            { Past.TEint  }
 | UNITTYPE                           { Past.TEunit  }
 | texpr ARROW texpr                  { Past.TEarrow ($1, $3)}
-| texpr MUL texpr                    { Past.TEproduct ($1, $3)}
+| texpr MUL texpr                    { Past.TEproduct [$1; $3]}
 | texpr ADD texpr                    { Past.TEunion ($1, $3)}
 | texpr REF                          { Past.TEref $1 } 
 | LPAREN texpr RPAREN                { $2 } 

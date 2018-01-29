@@ -9,7 +9,7 @@ and value =
      | INT of int 
      | BOOL of bool 
      | UNIT
-     | PAIR of value * value 
+     | TUPLE of value list
      | INL of value 
      | INR of value 
      | FUN of ((value * store) -> (value * store))

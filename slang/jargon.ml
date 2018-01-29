@@ -625,8 +625,8 @@ let rec comp vmap = function
   | Op(e1, op, e2) -> let (defs1, c1) = comp vmap e1 in  
                       let (defs2, c2) = comp vmap e2 in  
                           (defs1 @ defs2, c1 @ c2 @ [OPER op])
-  | Pair(e1, e2)   -> let (defs1, c1) = comp vmap e1 in  
-                      let (defs2, c2) = comp vmap e2 in  
+  | Tuple(e1::e2::_)   -> let (defs1, c1) = comp vmap e1 in  
+                          let (defs2, c2) = comp vmap e2 in  
                           (defs1 @ defs2, c1 @ c2 @ [MK_PAIR]) 
   | Fst e          -> let (defs, c) = comp vmap e in (defs, c @ [FST])
   | Snd e          -> let (defs, c) = comp vmap e in (defs, c @ [SND])

@@ -14,7 +14,7 @@ let free_vars(bvars, exp) =
     | UnaryOp(_, e)      -> aux bound free e
     | Op(e1, _, e2)      -> aux bound (aux bound free e1) e2
     | If(e1, e2, e3)     -> aux bound (aux bound (aux bound free e1) e2) e3
-    | Pair(e1, e2)       -> aux bound (aux bound free e1) e2
+    | Tuple(es)          -> List.fold_left (fun free' e -> aux bound free' e) free es
     | App(e1, e2)        -> aux bound (aux bound free e1) e2
     | Fst e              -> aux bound free e
     | Snd e              -> aux bound free e

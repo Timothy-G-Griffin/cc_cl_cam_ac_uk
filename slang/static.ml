@@ -37,11 +37,16 @@ let rec find loc x = function
   | [] -> complain (x ^ " is not defined at " ^ (string_of_loc loc)) 
   | (y, v) :: rest -> if x = y then v else find loc x rest
 
+let rec unzip = function
+    | [] -> ([], [])
+    | (x,y)::tl -> let (xs, ys) = unzip tl in (x::xs, y::ys)
 
 (* may want to make this more interesting someday ... *) 
 let rec match_types (t1, t2) = (t1 = t2) 
 
-let make_pair loc (e1, t1) (e2, t2)  = (Pair(loc, e1, e2), TEproduct(t1, t2))
+let make_tuple loc ets = 
+    let (es, ts) = unzip ets in 
+    (Tuple(loc, es), TEproduct(ts))
 let make_inl loc t2 (e, t1)          = (Inl(loc, t2, e), TEunion(t1, t2))
 let make_inr loc t1 (e, t2)          = (Inr(loc, t1, e), TEunion(t1, t2))
 let make_lambda loc x t1 (e, t2)     = (Lambda(loc, (x, t1, e)), TEarrow(t1, t2))
@@ -71,11 +76,11 @@ let make_app loc (e1, t1) (e2, t2) =
     | _ -> report_expecting e1 "function type" t1
 
 let make_fst loc = function 
-  | (e, TEproduct(t, _)) -> (Fst(loc, e), t) 
+  | (e, TEproduct(t::_)) -> (Fst(loc, e), t) 
   | (e, t) -> report_expecting e "product" t
 
 let make_snd loc = function 
-  | (e, TEproduct(_, t)) -> (Snd(loc, e), t) 
+  | (e, TEproduct(_::t::_)) -> (Snd(loc, e), t) 
   | (e, t) -> report_expecting e "product" t
 
 
@@ -162,7 +167,7 @@ let rec  infer env e =
     | UnaryOp(loc, uop, e) -> make_uop loc uop (infer env e) 
     | Op(loc, e1, bop, e2) -> make_bop loc bop (infer env e1) (infer env e2) 
     | If(loc, e1, e2, e3)  -> make_if loc (infer env e1) (infer env e2) (infer env e3)          
-    | Pair(loc, e1, e2)    -> make_pair loc (infer env e1) (infer env e2) 
+    | Tuple(loc, es)       -> make_tuple loc (List.map (infer env) es)
     | Fst(loc, e)          -> make_fst loc (infer env e)
     | Snd (loc, e)         -> make_snd loc (infer env e)
     | Inl (loc, t, e)      -> make_inl loc t (infer env e)

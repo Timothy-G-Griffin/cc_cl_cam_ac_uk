@@ -13,7 +13,7 @@ type expr =
        | UnaryOp of unary_oper * expr
        | Op of expr * oper * expr
        | If of expr * expr * expr
-       | Pair of expr * expr
+       | Tuple of expr list
        | Fst of expr 
        | Snd of expr 
        | Inl of expr 
@@ -76,12 +76,15 @@ let rec pp_expr ppf = function
     | Op(e1, op, e2)   -> fprintf ppf "(%a %a %a)" pp_expr e1  pp_binary op pp_expr e2 
     | If(e1, e2, e3)   -> fprintf ppf "@[if %a then %a else %a @]" 
                                       pp_expr e1 pp_expr e2 pp_expr e3
-    | Pair(e1, e2)     -> fprintf ppf "(%a, %a)" pp_expr e1 pp_expr e2
+    | Tuple(el)        -> fprintf ppf "(%s)" (String.concat ", " (List.map (fun e ->
+            (pp_expr Format.str_formatter) e; 
+            Format.flush_str_formatter ())
+            el) ^ ")")
     | Fst e            -> fprintf ppf "fst(%a)" pp_expr e
     | Snd e            -> fprintf ppf "snd(%a)" pp_expr e
     | Inl e            -> fprintf ppf "inl(%a)" pp_expr e
     | Inr e            -> fprintf ppf "inr(%a)" pp_expr e
-    | Case(e, (x1, e1), (x2, e2)) -> 
+    | Case(e, (x1, e1), (x2, e2)) ->
         fprintf ppf "@[<2>case %a of@ | inl %a -> %a @ | inr %a -> %a end@]" 
                      pp_expr e fstring x1 pp_expr e1 fstring x2 pp_expr e2 
     | Lambda(x, e) -> 
@@ -148,7 +151,7 @@ let rec string_of_expr = function
     | UnaryOp(op, e)   -> mk_con "UnaryOp" [string_of_uop op; string_of_expr e]
     | Op(e1, op, e2)   -> mk_con "Op" [string_of_expr e1; string_of_bop op; string_of_expr e2]
     | If(e1, e2, e3)   -> mk_con "If" [string_of_expr e1; string_of_expr e2; string_of_expr e3]
-    | Pair(e1, e2)     -> mk_con "Pair" [string_of_expr e1; string_of_expr e2]
+    | Tuple(el)        -> mk_con "Tuple" (List.map string_of_expr el)
     | Fst e            -> mk_con "Fst" [string_of_expr e] 
     | Snd e            -> mk_con "Snd" [string_of_expr e] 
     | Inl e            -> mk_con "Inl" [string_of_expr e] 

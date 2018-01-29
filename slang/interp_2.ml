@@ -285,17 +285,17 @@ let leave_scope = [SWAP; POP]
    val compile : expr -> code 
 *) 
 let rec compile = function 
- | Unit           -> [PUSH UNIT] 
- | Integer n      -> [PUSH (INT n)] 
- | Boolean b      -> [PUSH (BOOL b)] 
- | Var x          -> [LOOKUP x] 
- | UnaryOp(op, e) -> (compile e) @ [UNARY op]
- | Op(e1, op, e2) -> (compile e1) @ (compile e2) @ [OPER op] 
- | Pair(e1, e2)   -> (compile e1) @ (compile e2) @ [MK_PAIR] 
- | Fst e          -> (compile e) @ [FST] 
- | Snd e          -> (compile e) @ [SND] 
- | Inl e          -> (compile e) @ [MK_INL] 
- | Inr e          -> (compile e) @ [MK_INR] 
+ | Unit               -> [PUSH UNIT] 
+ | Integer n          -> [PUSH (INT n)] 
+ | Boolean b          -> [PUSH (BOOL b)] 
+ | Var x              -> [LOOKUP x] 
+ | UnaryOp(op, e)     -> (compile e) @ [UNARY op]
+ | Op(e1, op, e2)     -> (compile e1) @ (compile e2) @ [OPER op] 
+ | Tuple(e1::e2::_)   -> (compile e1) @ (compile e2) @ [MK_PAIR] 
+ | Fst e              -> (compile e) @ [FST] 
+ | Snd e              -> (compile e) @ [SND] 
+ | Inl e              -> (compile e) @ [MK_INL] 
+ | Inr e              -> (compile e) @ [MK_INR] 
  | Case(e, (x1, e1), (x2, e2)) -> 
        (compile e)
        @ [CASE((BIND x1) :: (compile e1) @ leave_scope, 

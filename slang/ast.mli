@@ -13,7 +13,7 @@ type expr =
        | UnaryOp of unary_oper * expr
        | Op of expr * oper * expr
        | If of expr * expr * expr
-       | Pair of expr * expr
+       | Tuple of expr list
        | Fst of expr 
        | Snd of expr 
        | Inl of expr 

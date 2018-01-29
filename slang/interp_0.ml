@@ -40,7 +40,7 @@ and value =
      | INT of int 
      | BOOL of bool 
      | UNIT
-     | PAIR of value * value 
+     | TUPLE of value list
      | INL of value 
      | INR of value 
      | FUN of ((value * store) -> (value * store)) 
@@ -58,7 +58,7 @@ let rec string_of_value = function
      | BOOL b -> string_of_bool b
      | INT n -> string_of_int n 
      | UNIT -> "()"
-     | PAIR(v1, v2) -> "(" ^ (string_of_value v1) ^ ", " ^ (string_of_value v2) ^ ")"
+     | TUPLE(vl) -> "(" ^ (String.concat ", " (List.map string_of_value vl)) ^ ")"
      | INL v -> "inl(" ^ (string_of_value v) ^ ")"
      | INR  v -> "inr(" ^ (string_of_value v) ^ ")"
      | FUN _ -> "FUNCTION( ... )" 
@@ -138,15 +138,19 @@ let rec interpret (e, env, store) =
                           | BOOL false -> interpret(e3, env, store')
                           | v -> complain "runtime error.  Expecting a boolean!"
                           )
-    | Pair(e1, e2)     -> let (v1, store1) = interpret(e1, env, store) in 
-                          let (v2, store2) = interpret(e2, env, store1) in (PAIR(v1, v2), store2) 
+    | Tuple(el)        -> let (vl, store') = List.fold_left 
+                            (fun (vl, s) e ->
+                              let (v, ns) = interpret(e, env, s) in (v::vl, ns))
+                            ([], store)
+                            el in
+                          (TUPLE(List.rev vl), store')
     | Fst e            -> (match interpret(e, env, store) with 
-                           | (PAIR (v1, _), store') -> (v1, store') 
-                           | (v, _) -> complain "runtime error.  Expecting a pair!"
+                           | (TUPLE(v1::_), store') -> (v1, store') 
+                           | (v, _) -> complain "runtime error.  Expecting a tuple!"
                           )
     | Snd e            -> (match interpret(e, env, store) with 
-                           | (PAIR (_, v2), store') -> (v2, store') 
-                           | (v, _) -> complain "runtime error.  Expecting a pair!"
+                           | (TUPLE (_::v2::_), store') -> (v2, store') 
+                           | (v, _) -> complain "runtime error.  Expecting a tuple!"
                           )
     | Inl e            -> let (v, store') = interpret(e, env, store) in (INL v, store') 
     | Inr e            -> let (v, store') = interpret(e, env, store) in (INR v, store') 

@@ -13,7 +13,7 @@ type type_expr =
    | TEunit 
    | TEref of type_expr 
    | TEarrow of type_expr * type_expr
-   | TEproduct of type_expr * type_expr
+   | TEproduct of type_expr list
    | TEunion of type_expr * type_expr
 
 type formals = (var * type_expr) list
@@ -31,7 +31,7 @@ type expr =
        | UnaryOp of loc * unary_oper * expr
        | Op of loc * expr * oper * expr
        | If of loc * expr * expr * expr
-       | Pair of loc * expr * expr
+       | Tuple of loc * (expr list)
        | Fst of loc * expr 
        | Snd of loc * expr 
        | Inl of loc * type_expr * expr 
@@ -61,7 +61,7 @@ let  loc_of_expr = function
     | UnaryOp(loc, _, _)            -> loc 
     | Op(loc, _, _, _)              -> loc 
     | If(loc, _, _, _)              -> loc 
-    | Pair(loc, _, _)               -> loc 
+    | Tuple(loc, _)                 -> loc 
     | Fst(loc, _)                   -> loc 
     | Snd(loc, _)                   -> loc 
     | Inr(loc, _, _)                -> loc 
@@ -97,7 +97,7 @@ let rec pp_type = function
   | TEunit -> "unit" 
   | TEref t           -> "(" ^ (pp_type t) ^ " ref)"
   | TEarrow(t1, t2)   -> "(" ^ (pp_type t1) ^ " -> " ^ (pp_type t2) ^ ")" 
-  | TEproduct(t1, t2) -> "(" ^ (pp_type t1) ^ " * " ^ (pp_type t2) ^ ")"  
+  | TEproduct(tl)     -> "(" ^ (String.concat " * " (List.map pp_type tl)) ^ ")"  
   | TEunion(t1, t2)   -> "(" ^ (pp_type t1) ^ " + " ^ (pp_type t2) ^ ")"  
 
 let pp_uop = function 
@@ -136,7 +136,11 @@ let rec pp_expr ppf = function
     | Op(_, e1, op, e2)   -> fprintf ppf "(%a %a %a)" pp_expr e1  pp_binary op pp_expr e2 
     | If(_, e1, e2, e3)   -> fprintf ppf "@[if %a then %a else %a @]" 
                                       pp_expr e1 pp_expr e2 pp_expr e3
-    | Pair(_, e1, e2)     -> fprintf ppf "(%a, %a)" pp_expr e1 pp_expr e2
+    | Tuple(_, el)        -> fprintf ppf "(%s)" (String.concat ", " 
+        (List.map (fun e ->
+          (pp_expr Format.str_formatter) e; 
+          Format.flush_str_formatter ())
+        el) ^ ")")
     | Fst(_, e)           -> fprintf ppf "fst(%a)" pp_expr e
     | Snd(_, e)           -> fprintf ppf "snd %a" pp_expr e
     | Inl(_, t, e)        -> fprintf ppf "(inl %a %a)" pp_type t pp_expr e
@@ -204,7 +208,7 @@ let rec string_of_type = function
   | TEunit            -> "TEunit" 
   | TEref t           -> mk_con "TEref" [string_of_type t] 
   | TEarrow(t1, t2)   -> mk_con "TEarrow" [string_of_type t1; string_of_type t2] 
-  | TEproduct(t1, t2) -> mk_con "TEproduct" [string_of_type t1; string_of_type t2] 
+  | TEproduct(tl) -> mk_con "TEproduct" (List.map string_of_type tl)
   | TEunion(t1, t2)   -> mk_con "TEunion" [string_of_type t1; string_of_type t2] 
 
 let rec string_of_expr = function 
@@ -216,7 +220,7 @@ let rec string_of_expr = function
     | UnaryOp(_, op, e)   -> mk_con "UnaryOp" [string_of_uop op; string_of_expr e]
     | Op(_, e1, op, e2)   -> mk_con "Op" [string_of_expr e1; string_of_bop op; string_of_expr e2]
     | If(_, e1, e2, e3)   -> mk_con "If" [string_of_expr e1; string_of_expr e2; string_of_expr e3]
-    | Pair(_, e1, e2)     -> mk_con "Pair" [string_of_expr e1; string_of_expr e2]
+    | Tuple(_, el)        -> mk_con "Tuple" (List.map string_of_expr el)
     | Fst(_, e)           -> mk_con "Fst" [string_of_expr e] 
     | Snd(_, e)           -> mk_con "Snd" [string_of_expr e] 
     | Inl(_, t, e)        -> mk_con "Inl" [string_of_expr e] 

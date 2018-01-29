@@ -216,7 +216,7 @@ let step = function
  | EXAMINE(UnaryOp(op, e),              env, k) -> EXAMINE(e,  env, (UNARY op) :: k)
  | EXAMINE(Op(e1, op, e2),              env, k) -> EXAMINE(e1, env, OPER_FST(e2, env, op) :: k)
  | EXAMINE(If(e1, e2, e3),              env, k) -> EXAMINE(e1, env, IF(e2, e3, env) :: k)
- | EXAMINE(Pair(e1, e2),                env, k) -> EXAMINE(e1, env, PAIR_FST(e2, env) :: k)
+ | EXAMINE(Tuple(e1::e2::_),            env, k) -> EXAMINE(e1, env, PAIR_FST(e2, env) :: k)
  | EXAMINE(Fst e,                       env, k) -> EXAMINE(e,  env, FST :: k)
  | EXAMINE(Snd e,                       env, k) -> EXAMINE(e,  env, SND :: k) 
  | EXAMINE(Inl e,                       env, k) -> EXAMINE(e,  env, MKINL :: k) 
