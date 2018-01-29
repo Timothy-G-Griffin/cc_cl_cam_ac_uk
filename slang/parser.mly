@@ -1,4 +1,3 @@
-
 /* Auxiliary code */
 
 %{
@@ -53,7 +52,9 @@ simple_expr:
 | TRUE                               { Past.Boolean (get_loc(), true)}
 | FALSE                              { Past.Boolean (get_loc(), false)}
 | LPAREN expr RPAREN                 { $2 }
-| LPAREN expr COMMA expr RPAREN      { Past.Pair(get_loc(), $2, $4) }
+| LPAREN expr COMMA simple_expr {let x = $4 in Past.Pair(get_loc(), $2, x) }
+| expr COMMA simple_expr {let x = $3 in Past.Pair(get_loc(), $1, x) }
+| expr RPAREN { $1 }
 | NOT simple_expr               { Past.UnaryOp(get_loc(), Past.NOT, $2) }
 | BANG simple_expr              { Past.Deref(get_loc(), $2) }
 | REF simple_expr               { Past.Ref(get_loc(), $2) }
