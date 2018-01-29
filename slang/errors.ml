@@ -1,7 +1,4 @@
 
-exception Error of string 
+exception Error of string
 
-let complain s = raise (Error s) 
-
-
-
+let complain s = raise (Error s)

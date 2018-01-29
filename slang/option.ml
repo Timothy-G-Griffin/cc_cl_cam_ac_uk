@@ -42,7 +42,7 @@ let usage_msg = "Usage: slang.byte [options] [<file>]\nOptions are:"
 (* This does the parsing and *)
 let () = Arg.parse option_spec set_infile usage_msg
 
-(* set immutable versions of the options now that they have been parsed 
+(* set immutable versions of the options now that they have been parsed
  * Note: this is only to make the interface cleaner. *)
 let infile        = !infile
 let verbose       = !verbose

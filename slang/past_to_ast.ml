@@ -1,23 +1,23 @@
 
 
-(*   translate_expr : Past.expr -> Ast.expr 
-     Translates parsed AST to internal AST : 
-     1) drop file locations 
-     2) drop types 
-     3) remove let 
-     ) replace "?" (What) with unary function call 
+(*   translate_expr : Past.expr -> Ast.expr
+     Translates parsed AST to internal AST :
+     1) drop file locations
+     2) drop types
+     3) remove let
+     ) replace "?" (What) with unary function call
 
-  Note : our front-end drops type information.  Is this really a good idea? 
-  Could types be useful in later phases of the compiler? 
+  Note : our front-end drops type information.  Is this really a good idea?
+  Could types be useful in later phases of the compiler?
 
-*) 
+*)
 
-let translate_uop = function 
-  | Past.NEG -> Ast.NEG 
-  | Past.NOT -> Ast.NOT 
+let translate_uop = function
+  | Past.NEG -> Ast.NEG
+  | Past.NOT -> Ast.NOT
 
-let translate_bop = function 
-  | Past.ADD -> Ast.ADD 
+let translate_bop = function
+  | Past.ADD -> Ast.ADD
   | Past.MUL -> Ast.MUL
   | Past.DIV -> Ast.DIV
   | Past.SUB -> Ast.SUB
@@ -29,10 +29,10 @@ let translate_bop = function
   | Past.EQ  -> Errors.complain "internal error, translate found a EQ that should have been resolved to EQI or EQB"
 
 
-let rec translate_expr = function 
+let rec translate_expr = function
     | Past.Unit _            -> Ast.Unit
     | Past.What _            -> Ast.UnaryOp(Ast.READ, Ast.Unit)
-    | Past.Var(_, x)         -> Ast.Var x 
+    | Past.Var(_, x)         -> Ast.Var x
     | Past.Integer(_, n)     -> Ast.Integer n
     | Past.Boolean(_, b)     -> Ast.Boolean b
     | Past.UnaryOp(_, op, e) -> Ast.UnaryOp(translate_uop op, translate_expr e)
@@ -43,19 +43,19 @@ let rec translate_expr = function
     | Past.Snd(_, e)         -> Ast.Snd(translate_expr e)
     | Past.Inl(_, _, e)       -> Ast.Inl(translate_expr e)
     | Past.Inr(_, _, e)       -> Ast.Inr(translate_expr e)
-    | Past.Case(_, e, l1, l2) -> 
-         Ast.Case(translate_expr e, translate_lambda l1, translate_lambda l2) 
+    | Past.Case(_, e, l1, l2) ->
+         Ast.Case(translate_expr e, translate_lambda l1, translate_lambda l2)
     | Past.Lambda(_, l)      -> Ast.Lambda (translate_lambda l)
     | Past.App(_, e1, e2)    -> Ast.App(translate_expr e1, translate_expr e2)
     (*
-       Replace "let" with abstraction and application. For example, translate 
-        "let x = e1 in e2 end" to "(fun x -> e2) e1" 
-    *) 
-    | Past.Let(_, x, _, e1, e2) -> 
+       Replace "let" with abstraction and application. For example, translate
+        "let x = e1 in e2 end" to "(fun x -> e2) e1"
+    *)
+    | Past.Let(_, x, _, e1, e2) ->
          Ast.App(Ast.Lambda(x, translate_expr e2), translate_expr e1)
-    | Past.LetFun(_, f, l, _, e)     -> 
+    | Past.LetFun(_, f, l, _, e)     ->
          Ast.LetFun(f, translate_lambda l, translate_expr e)
-    | Past.LetRecFun(_, f, l, _, e)     -> 
+    | Past.LetRecFun(_, f, l, _, e)     ->
          Ast.LetRecFun(f, translate_lambda l, translate_expr e)
 
     | Past.Seq(_, el) -> Ast.Seq(List.map translate_expr el)
@@ -64,5 +64,4 @@ let rec translate_expr = function
     | Past.Deref(_, e) -> Ast.Deref(translate_expr e)
     | Past.Assign(_, e1, e2) -> Ast.Assign(translate_expr e1, translate_expr e2)
 
-and translate_lambda (x, _, body) = (x, translate_expr body) 
-
+and translate_lambda (x, _, body) = (x, translate_expr body)
