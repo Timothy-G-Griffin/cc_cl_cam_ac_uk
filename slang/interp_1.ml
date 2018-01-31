@@ -24,7 +24,7 @@ type value =
      | INT of int
      | BOOL of bool
      | UNIT
-     | PAIR of value * value
+     | TUPLE of value list
      | INL of value
      | INR of value
      | REC_CLOSURE of closure
@@ -39,12 +39,13 @@ and continuation_action =
   | ASSIGN of value
   | ASSIGN_FST of Ast.expr * env
   | TAIL of Ast.expr list * env
-  | IF of expr * expr * env
+  | IF of Ast.expr * Ast.expr * env
   | WHILE of Ast.expr * Ast.expr * env
-  | MKPAIR of value
-  | PAIR_FST of expr * env
+  | MK_TUPLE of value list
+  | TUPLE_FST of Ast.expr list * value list * env
   | FST
   | SND
+  | PROJ of int
   | MKINL
   | MKINR
   | MKREF
@@ -143,7 +144,7 @@ let rec string_of_value = function
      | BOOL b         -> string_of_bool b
      | INT n          -> string_of_int n
      | UNIT           -> "UNIT"
-     | PAIR(v1, v2)   -> "PAIR(" ^ (string_of_value v1) ^ ", " ^ (string_of_value v2) ^ ")"
+     | TUPLE(vs)      -> "TUPLE(" ^ (String.concat ", " (List.map string_of_value vs)) ^ ")"
      | INL v          -> "INL(" ^ (string_of_value v) ^ ")"
      | INR v          -> "INR(" ^ (string_of_value v) ^ ")"
      | CLOSURE cl     -> "CLOSURE(" ^ (string_of_closure cl) ^ ")"
@@ -159,9 +160,12 @@ let string_of_expr_list = string_of_list "; " Ast.string_of_expr
 
 let string_of_continuation_action = function
   | UNARY op     -> "UNARY " ^ (string_of_unary_oper op)
-  | MKPAIR v     -> "MKPAIR " ^ (string_of_value v)
+  | MK_TUPLE vs  ->
+    let vs_string = "(" ^ (String.concat ", " (List.map string_of_value vs)) ^ ")" in
+    "MK_TUPLE(" ^ vs_string ^ ")"
   | FST          -> "FST"
   | SND          -> "SND"
+  | PROJ pos     -> "PROJ(" ^ (string_of_int pos) ^ ")"
   | MKINL        -> "MKINL"
   | MKINR        -> "MKINR"
   | APPLY v     -> "APPLY " ^ (string_of_value v)
@@ -173,8 +177,10 @@ let string_of_continuation_action = function
                 ^ x2 ^ ", "
                 ^ (Ast.string_of_expr e2) ^ ", "
                 ^ (string_of_env env) ^ ")"
-  | PAIR_FST (e, env)    ->
-      "PAIR_FST(" ^ (Ast.string_of_expr e) ^ ", " ^ (string_of_env env) ^ ")"
+  | TUPLE_FST (es, vs, env)    ->
+    let es_string = "(" ^ (String.concat ", " (List.map Ast.string_of_expr es)) ^ ")" in
+    let vs_string = "(" ^ (String.concat ", " (List.map string_of_value vs)) ^ ")" in
+      "TUPLE_FST(" ^ es_string ^ ", " ^ vs_string ^ ", " ^ (string_of_env env) ^ ")"
   | OPER_FST(e, env, op) ->
       "OPER_FST(" ^ (Ast.string_of_expr e) ^ ", " ^ (string_of_env env) ^ ", " ^ (string_of_oper op) ^ ")"
   | IF (e1, e2, env) ->
@@ -211,14 +217,17 @@ let mk_ref v = let a = new_address () in let _ = heap.(a) <- v in REF a
 let do_assign a v = (heap.(a) <- v)
 
 
-let step = function
+let step state =
+  let complain_state msg = complain ("step : malformed state = " ^ (string_of_state state) ^ msg ^ "\n") in
+  match state with
  (* EXAMINE --> EXAMINE *)
  | EXAMINE(UnaryOp(op, e),              env, k) -> EXAMINE(e,  env, (UNARY op) :: k)
  | EXAMINE(Op(e1, op, e2),              env, k) -> EXAMINE(e1, env, OPER_FST(e2, env, op) :: k)
  | EXAMINE(If(e1, e2, e3),              env, k) -> EXAMINE(e1, env, IF(e2, e3, env) :: k)
- | EXAMINE(Tuple(e1::e2::_),            env, k) -> EXAMINE(e1, env, PAIR_FST(e2, env) :: k)
+ | EXAMINE(Tuple(e::es),                env, k) -> EXAMINE(e,  env, TUPLE_FST(es, [], env) :: k)
  | EXAMINE(Fst e,                       env, k) -> EXAMINE(e,  env, FST :: k)
  | EXAMINE(Snd e,                       env, k) -> EXAMINE(e,  env, SND :: k)
+ | EXAMINE(Proj(pos, e),                env, k) -> EXAMINE(e,  env, (PROJ pos) :: k)
  | EXAMINE(Inl e,                       env, k) -> EXAMINE(e,  env, MKINL :: k)
  | EXAMINE(Inr e,                       env, k) -> EXAMINE(e,  env, MKINR :: k)
  | EXAMINE(Case(e, (x1, e1), (x2, e2)), env, k) -> EXAMINE(e,  env, CASE(x1, e1, x2, e2, env) :: k)
@@ -240,9 +249,11 @@ let step = function
  (* COMPUTE --> COMPUTE *)
  | COMPUTE((UNARY op) :: k,    v) -> COMPUTE(k ,(do_unary(op, v)))
  | COMPUTE(OPER(op, v1) :: k, v2) -> COMPUTE(k, do_oper(op, v1, v2))
- | COMPUTE((MKPAIR v1) :: k,  v2) -> COMPUTE(k, PAIR(v1, v2))
- | COMPUTE(FST :: k,  PAIR(v, _)) -> COMPUTE(k, v)
- | COMPUTE(SND :: k,  PAIR(_, v)) -> COMPUTE(k, v)
+ | COMPUTE((MK_TUPLE vs) :: k, v) -> COMPUTE(k, TUPLE(List.rev (v::vs)))
+ | COMPUTE(FST :: k, TUPLE(v::_))     -> COMPUTE(k, v)
+ | COMPUTE(SND :: k, TUPLE(_::v::_))  -> COMPUTE(k, v)
+ | COMPUTE((PROJ pos) :: k, TUPLE vs) -> (try COMPUTE(k, List.nth vs (pos - 1)) with
+    | Failure _ | Invalid_argument _ -> complain_state "(invalid projection)")
  | COMPUTE(MKINL :: k,         v) -> COMPUTE(k, (INL v))
  | COMPUTE(MKINR :: k,         v) -> COMPUTE(k, (INR v))
  | COMPUTE(MKREF :: k,         v) -> COMPUTE(k , mk_ref v)
@@ -254,7 +265,8 @@ let step = function
  | COMPUTE((APPLY v2) :: k, CLOSURE(x, body, env))  -> EXAMINE(body, update(env, (x, v2)), k)
  | COMPUTE((APPLY v2) :: k, REC_CLOSURE(x, body, env)) -> EXAMINE(body, update(env, (x, v2)), k)
  | COMPUTE(ARG (e2, env) :: k,                   v)  -> EXAMINE(e2, env, (APPLY v) :: k)
- | COMPUTE(PAIR_FST (e2, env) :: k,             v1)  -> EXAMINE(e2, env, (MKPAIR v1) :: k)
+ | COMPUTE(TUPLE_FST ([e], vs, env) :: k,        v)  -> EXAMINE(e, env, (MK_TUPLE (v::vs)) :: k)
+ | COMPUTE(TUPLE_FST (e::es, vs, env) :: k,      v)  -> EXAMINE(e, env, (TUPLE_FST (es, v::vs, env)) :: k)
  | COMPUTE(CASE (x1, e1, x2, e2, env) :: k,  INL v)  -> EXAMINE(e1, update(env, (x1, v)), k)
  | COMPUTE(CASE (x1, e1, x2, e2, env) :: k,  INR v)  -> EXAMINE(e2, update(env, (x2, v)), k)
  | COMPUTE(IF (e2, e3, env) :: k,        BOOL true)  -> EXAMINE(e2, env, k)
@@ -263,7 +275,7 @@ let step = function
  | COMPUTE(ASSIGN_FST (e2, env) :: k,            v)  -> EXAMINE(e2, env, ASSIGN v :: k)
  | COMPUTE(WHILE (e1, e2, env) :: k,     BOOL true)  -> EXAMINE(Seq [e2; e1], env, WHILE(e1, e2, env)::k)
  | COMPUTE((TAIL (el, env)) :: k,     _)  ->  EXAMINE(Seq el, env, k)
- | state -> complain ("step : malformed state = " ^ (string_of_state state) ^ "\n")
+ | _ -> complain_state ""
 
 let rec driver n state =
   let _ = if Option.verbose
