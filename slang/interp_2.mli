@@ -8,7 +8,7 @@ type value =
      | INT of int 
      | BOOL of bool 
      | UNIT
-     | PAIR of value * value 
+     | TUPLE of value list
      | INL of value 
      | INR of value 
      | CLOSURE of closure    
@@ -28,9 +28,10 @@ and instruction =
   | BIND of var 
   | FST
   | SND
+  | PROJ of int
   | DEREF 
   | APPLY
-  | MK_PAIR 
+  | MK_TUPLE of int
   | MK_INL
   | MK_INR
   | MK_REF 

@@ -29,7 +29,7 @@ type value =
      | INT of int
      | BOOL of bool
      | UNIT
-     | PAIR of value * value
+     | TUPLE of value list
      | INL of value
      | INR of value
      | CLOSURE of closure
@@ -48,9 +48,10 @@ and instruction =
   | BIND of var
   | FST
   | SND
+  | PROJ of int
   | DEREF
   | APPLY
-  | MK_PAIR
+  | MK_TUPLE of int (* Size of the tuple *)
   | MK_INL
   | MK_INR
   | MK_REF
@@ -90,7 +91,7 @@ let rec string_of_value = function
      | BOOL b         -> string_of_bool b
      | INT n          -> string_of_int n
      | UNIT           -> "UNIT"
-     | PAIR(v1, v2)    -> "(" ^ (string_of_value v1) ^ ", " ^ (string_of_value v2) ^ ")"
+     | TUPLE(vs)      -> "(" ^ (String.concat ", " (List.map string_of_value vs)) ^ ")"
      | INL v           -> "inl(" ^ (string_of_value v) ^ ")"
      | INR  v          -> "inr(" ^ (string_of_value v) ^ ")"
      | CLOSURE(cl) -> "CLOSURE(" ^ (string_of_closure cl) ^ ")"
@@ -106,9 +107,10 @@ and string_of_binding (x, v) =    "(" ^ x ^ ", " ^ (string_of_value v) ^ ")"
 and string_of_instruction = function
  | UNARY op     -> "UNARY " ^ (string_of_uop op)
  | OPER op      -> "OPER " ^ (string_of_bop op)
- | MK_PAIR      -> "MK_PAIR"
+ | MK_TUPLE(sz) -> "MK_TUPLE(" ^ (string_of_int sz) ^ ")"
  | FST          -> "FST"
  | SND          -> "SND"
+ | PROJ(pos)    -> "PROJ(" ^ (string_of_int pos) ^ ")"
  | MK_INL       -> "MK_INL"
  | MK_INR       -> "MK_INR"
  | MK_REF       -> "MK_REF"
@@ -237,8 +239,10 @@ let do_oper = function
     val step : interp_state -> interp_state
              = (code * env_value_stack * state) -> (code * env_value_stack * state)
 *)
-let step = function
 
+let step state = 
+  let complain_state () = complain ("step : bad state = " ^ (string_of_interp_state state) ^ "\n") in
+  match state with
 (* (code stack,         value/env stack, state) -> (code stack,  value/env stack, state) *)
  | ((PUSH v) :: ds,                        evs, s) -> (ds, (V v) :: evs, s)
  | (POP :: ds,                        e :: evs, s) -> (ds, evs, s)
@@ -247,9 +251,25 @@ let step = function
  | ((LOOKUP x) :: ds,                      evs, s) -> (ds, V(search(evs, x)) :: evs, s)
  | ((UNARY op) :: ds,             (V v) :: evs, s) -> (ds, V(do_unary(op, v)) :: evs, s)
  | ((OPER op) :: ds,   (V v2) :: (V v1) :: evs, s) -> (ds, V(do_oper(op, v1, v2)) :: evs, s)
- | (MK_PAIR :: ds,     (V v2) :: (V v1) :: evs, s) -> (ds, V(PAIR(v1, v2)) :: evs, s)
- | (FST :: ds,           V(PAIR (v, _)) :: evs, s) -> (ds, (V v) :: evs, s)
- | (SND :: ds,           V(PAIR (_, v)) :: evs, s) -> (ds, (V v) :: evs, s)
+ | ((MK_TUPLE sz) :: ds, evs, s) -> 
+  let rec take = function
+    | (0, rest) -> Some(([], rest))
+    | (n, []) -> None
+    | (n, (V v)::tl) -> (match (take (n - 1, tl)) with
+      | None -> None
+      | Some((p, t)) -> Some((v::p, t)))
+    | (n, _::_) -> None
+  (* We expect exactly sz values to form the tuple*)
+  in (match take (sz, evs) with
+   | None -> complain_state ()
+   | Some((vs,evs')) -> (ds, V(TUPLE(List.rev vs))::evs', s))
+        (* (ds, V(PAIR(v1, v2)) :: evs, s) *)
+ | (FST :: ds,           V(TUPLE (v::_)) :: evs, s) -> (ds, (V v) :: evs, s)
+ | (SND :: ds,           V(TUPLE (_::v::_)) :: evs, s) -> (ds, (V v) :: evs, s)
+ | (PROJ(pos) :: ds,     V(TUPLE (vs)) :: evs, s)  -> 
+    (try (ds, (V (List.nth vs (pos - 1))) :: evs, s) with
+    | _ -> complain ("step : invalid projection = " ^ (string_of_int pos) ^
+                    "; state " ^ (string_of_interp_state state) ^ "\n"))
  | (MK_INL :: ds,                 (V v) :: evs, s) -> (ds, V(INL v) :: evs, s)
  | (MK_INR :: ds,                 (V v) :: evs, s) -> (ds, V(INR v) :: evs, s)
  | (CASE (c1,  _) :: ds,         V(INL v)::evs, s) -> (c1 @ ds, (V v) :: evs, s)
@@ -265,7 +285,7 @@ let step = function
  | (MK_REC(f, c) :: ds,                    evs, s) -> (ds,  V(mk_rec(f, c, evs_to_env evs)) :: evs, s)
  | (APPLY :: ds,  V(CLOSURE (c, env)) :: (V v) :: evs, s)
                                                    -> (c @ ds, (V v) :: (EV env) :: evs, s)
- | state -> complain ("step : bad state = " ^ (string_of_interp_state state) ^ "\n")
+ | _ -> complain_state ()
 
 let rec driver n state =
   let _ = if Option.verbose
@@ -291,9 +311,10 @@ let rec compile = function
  | Var x              -> [LOOKUP x]
  | UnaryOp(op, e)     -> (compile e) @ [UNARY op]
  | Op(e1, op, e2)     -> (compile e1) @ (compile e2) @ [OPER op]
- | Tuple(e1::e2::_)   -> (compile e1) @ (compile e2) @ [MK_PAIR]
+ | Tuple(es)          -> List.concat (List.map compile es) @ [MK_TUPLE(List.length es)]
  | Fst e              -> (compile e) @ [FST]
  | Snd e              -> (compile e) @ [SND]
+ | Proj(pos, e)       -> (compile e) @ [PROJ pos]
  | Inl e              -> (compile e) @ [MK_INL]
  | Inr e              -> (compile e) @ [MK_INR]
  | Case(e, (x1, e1), (x2, e2)) ->
