@@ -28,7 +28,7 @@ type stack_item =
 
 
 type heap_type =
-  | HT_PAIR
+  | HT_TUPLE
   | HT_INL
   | HT_INR
   | HT_CLOSURE
@@ -57,10 +57,11 @@ type instruction =
 (*  | BIND of var            not needed *)
   | FST
   | SND
+  | PROJ of int
   | DEREF
   | APPLY
   | RETURN
-  | MK_PAIR
+  | MK_TUPLE of int
   | MK_INL
   | MK_INR
   | MK_REF
@@ -119,7 +120,7 @@ let string_of_stack_item = function
   | STACK_FP i       -> "STACK_FP " ^ (string_of_int i)
 
 let string_of_heap_type = function
-    | HT_PAIR    -> "HT_PAIR"
+    | HT_TUPLE   -> "HT_TUPLE"
     | HT_INL     -> "HT_INL"
     | HT_INR     -> "HT_INR"
     | HT_CLOSURE -> "HT_CLOSURE"
@@ -146,9 +147,10 @@ let string_of_location = function
 let string_of_instruction = function
  | UNARY op -> "UNARY " ^ (string_of_uop op)
  | OPER op  -> "OPER " ^ (string_of_bop op)
- | MK_PAIR  -> "MK_PAIR"
+ | MK_TUPLE(sz) -> "MK_TUPLE(" ^ (string_of_int sz) ^ ")"
  | FST      -> "FST"
  | SND      -> "SND"
+ | PROJ(pos)    -> "PROJ(" ^ (string_of_int pos) ^ ")"
  | MK_INL   -> "MK_INL"
  | MK_INR   -> "MK_INR"
  | MK_REF   -> "MK_REF"
@@ -206,6 +208,12 @@ let string_of_state vm =
       ^ (if vm.hp = 0 then "" else string_of_heap vm)
 
 
+(* List.init is part of ocaml 4.06. Written here for compatibility. *)
+let list_init n f =
+    let rec init i xs =
+        if i = n then xs else init (i + 1) ((f i)::xs)
+    in List.rev (init 0 [])
+
 (* the following two functions are needed to
    pretty-print heap and stack values
 *)
@@ -219,7 +227,11 @@ let rec string_of_heap_value a vm =
   | HEAP_CI _       -> Errors.complain "string_of_heap_value: expecting value in heap, found code index"
   | HEAP_HEADER (i, ht) ->
     (match ht with
-    | HT_PAIR -> "(" ^ (string_of_heap_value (a + 1) vm) ^ ", " ^ (string_of_heap_value (a + 2) vm) ^ ")"
+    | HT_TUPLE -> "(" ^
+        (String.concat ", "
+            (list_init (i - 1)
+                (fun j -> string_of_heap_value (a + j + 1) vm)))
+        ^ ")"
     | HT_INL -> "inl(" ^ (string_of_heap_value (a + 1) vm) ^ ")"
     | HT_INR -> "inr(" ^ (string_of_heap_value (a + 1) vm) ^ ")"
     | HT_CLOSURE -> "CLOSURE"
@@ -336,38 +348,39 @@ let allocate(n, vm) =
           then (vm2.hp, { vm2 with hp = vm2.hp + n })
           else Errors.complain "allocate : heap exhausted"
 
-let mk_pair vm =
-    let (v_right, vm1) = pop_top vm in
-    let (v_left, vm2) = pop_top vm1 in
-    let (a, vm3) = allocate(3, vm2) in
-    let header = HEAP_HEADER (3, HT_PAIR) in
+let mk_tuple sz vm =
+    (* let () = List.fold_left (fun ((v, vm), ())) *)
+    let rec pop_tuple vm vs = function
+        | 0 -> (vs, vm)
+        | sz ->
+            let (v, vm') = pop_top vm in
+            pop_tuple vm' (v::vs) (sz - 1)
+    in
+    let (vs, vm1) = pop_tuple vm [] sz in
+    let (a, vm2) = allocate(sz + 1, vm1) in
+    let header = HEAP_HEADER(sz + 1, HT_TUPLE) in
     let _ = Array.set vm.heap a header in
-    let _ = Array.set vm.heap (a + 1) (stack_to_heap_item v_left) in
-    let _ = Array.set vm.heap (a + 2) (stack_to_heap_item v_right) in
-        push(STACK_HI a, vm3)
+    List.iteri (fun i v ->
+        Array.set vm.heap (a + i + 1) (stack_to_heap_item v))
+        vs;
+    push(STACK_HI a, vm2)
 
-let do_fst vm =
+let do_proj pos vm =
     let (v, vm1) = pop_top vm in
     match v with
     | STACK_HI a ->
       (match vm1.heap.(a) with
-      | HEAP_HEADER(_, HT_PAIR) ->
-           push(heap_to_stack_item (vm.heap.(a + 1)), vm1)
-      | _ -> Errors.complain "do_fst : unexpectd heap item"
+      | HEAP_HEADER(sz, HT_TUPLE) ->
+        if pos < 1 || pos >= sz then
+            Errors.complain "do_proj : invalid tuple projection"
+        else
+           push(heap_to_stack_item (vm.heap.(a + pos)), vm1)
+      | _ -> Errors.complain "do_proj : unexpected heap item"
       )
-    | _ -> Errors.complain "do_fst : expecting heap pointer on stack"
+    | _ -> Errors.complain "do_proj : expecting heap pointer on stack"
 
-
-let do_snd vm =
-    let (v, vm1) = pop_top vm in
-    match v with
-    | STACK_HI a ->
-      (match vm1.heap.(a) with
-      | HEAP_HEADER(_, HT_PAIR) ->
-           push(heap_to_stack_item (vm.heap.(a + 2)), vm1)
-      | _ -> Errors.complain "do_snd : unexpectd heap item"
-      )
-    | _ -> Errors.complain "do_snd : expecting heap pointer on stack"
+let do_fst vm = do_proj 1 vm
+let do_snd vm = do_proj 2 vm
 
 let mk_inl vm =
     let (v, vm1) = pop_top vm in
@@ -478,9 +491,10 @@ let step vm =
  match get_instruction vm with
   | UNARY op          -> advance_cp (perform_unary(op, vm))
   | OPER op           -> advance_cp (perform_op(op, vm))
-  | MK_PAIR           -> advance_cp (mk_pair vm)
+  | MK_TUPLE sz       -> advance_cp (mk_tuple sz vm)
   | FST               -> advance_cp (do_fst vm)
   | SND               -> advance_cp (do_snd vm)
+  | PROJ pos          -> advance_cp (do_proj pos vm)
   | MK_INL            -> advance_cp (mk_inl vm)
   | MK_INR            -> advance_cp (mk_inr vm)
   | PUSH c            -> advance_cp (push(c, vm))
@@ -625,11 +639,12 @@ let rec comp vmap = function
   | Op(e1, op, e2) -> let (defs1, c1) = comp vmap e1 in
                       let (defs2, c2) = comp vmap e2 in
                           (defs1 @ defs2, c1 @ c2 @ [OPER op])
-  | Tuple(e1::e2::_)   -> let (defs1, c1) = comp vmap e1 in
-                          let (defs2, c2) = comp vmap e2 in
-                          (defs1 @ defs2, c1 @ c2 @ [MK_PAIR])
+  | Tuple es       -> let (defs, cs) = List.split (List.map (comp vmap) es) in
+                      let sz = List.length es in
+                      (List.flatten defs, (List.flatten cs) @ [MK_TUPLE sz])
   | Fst e          -> let (defs, c) = comp vmap e in (defs, c @ [FST])
   | Snd e          -> let (defs, c) = comp vmap e in (defs, c @ [SND])
+  | Proj(pos, e)   -> let (defs, c) = comp vmap e in (defs, c @ [PROJ pos])
   | Inl e          -> let (defs, c) = comp vmap e in (defs, c @ [MK_INL])
   | Inr e          -> let (defs, c) = comp vmap e in (defs, c @ [MK_INR])
   | Case(e1, (x1, e2), (x2, e3)) ->
