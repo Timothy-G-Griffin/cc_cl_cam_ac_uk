@@ -1,0 +1,7 @@
+_build/
+slang.byte
+slang.native
+.merlin
+jbuild
+
+.vscode/

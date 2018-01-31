@@ -2,7 +2,7 @@
   open Parser
   open Lexing 
 
-(* next_line copied from  Ch. 16 of "Real Workd Ocaml" *) 
+(* next_line copied from  Ch. 16 of "Real World Ocaml" *) 
 let next_line lexbuf =
   let pos = lexbuf.lex_curr_p in
   lexbuf.lex_curr_p <-
@@ -37,6 +37,7 @@ rule token = parse
   | "->" { ARROW }
   | "?" { WHAT }
   | "!" { BANG }
+  | "#" { HASH }
   | "()" { UNIT }
   | "and" { AND }
   | "true" { TRUE }
@@ -69,10 +70,16 @@ rule token = parse
   | _ { Errors.complain ("Lexer : Illegal character " ^ (Char.escaped(Lexing.lexeme_char lexbuf 0)))
 }
 
-(* note : not currently handling nested comments *) 
 and comment = parse
-  | "*)" { token lexbuf } 
-  | newline { next_line lexbuf; token lexbuf } 
-  | _ { comment lexbuf } 
-      
+  | "*)" { token lexbuf }
+  | "(*" { nested_comment lexbuf; comment lexbuf }
+  | newline { next_line lexbuf; comment lexbuf }
+  | eof { Errors.complain ("Lexer : Unexpected end-of-file. Comment is not terminated.") }
+  | _ { comment lexbuf }
 
+and nested_comment = parse
+  | "*)" { }
+  | "(*" { nested_comment lexbuf; nested_comment lexbuf }
+  | newline { next_line lexbuf; nested_comment lexbuf }
+  | eof { Errors.complain ("Lexer : Unexpected end-of-file. Comment is not terminated.") }
+  | _ { nested_comment lexbuf }
