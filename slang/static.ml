@@ -83,6 +83,11 @@ let make_snd loc = function
   | (e, TEproduct(_::t::_)) -> (Snd(loc, e), t)
   | (e, t) -> report_expecting e "product" t
 
+let make_proj loc pos = function
+  | (e, TEproduct(ts)) -> (try (Proj(loc, pos, e), List.nth ts (pos - 1)) with
+    | _ -> complain "Invalid tuple projection!")
+  | (e, t) -> report_expecting e "product" t
+
 
 let make_deref loc (e, t) =
     match t with
@@ -170,6 +175,7 @@ let rec  infer env e =
     | Tuple(loc, es)       -> make_tuple loc (List.map (infer env) es)
     | Fst(loc, e)          -> make_fst loc (infer env e)
     | Snd (loc, e)         -> make_snd loc (infer env e)
+    | Proj(loc,pos,e)      -> make_proj loc pos (infer env e)
     | Inl (loc, t, e)      -> make_inl loc t (infer env e)
     | Inr (loc, t, e)      -> make_inr loc t (infer env e)
     | Case(loc, e, (x1, t1, e1), (x2, t2, e2)) ->

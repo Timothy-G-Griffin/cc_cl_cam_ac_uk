@@ -50,6 +50,9 @@ type expr =
        | LetFun of loc * var * lambda * type_expr * expr
        | LetRecFun of loc * var * lambda * type_expr * expr
 
+       | Proj of loc * int * expr (* tuple projection *)
+
+
 and lambda = var * type_expr * expr
 
 let  loc_of_expr = function
@@ -64,6 +67,7 @@ let  loc_of_expr = function
     | Tuple(loc, _)                 -> loc
     | Fst(loc, _)                   -> loc
     | Snd(loc, _)                   -> loc
+    | Proj(loc, _, _)         -> loc
     | Inr(loc, _, _)                -> loc
     | Inl(loc, _, _)                -> loc
     | Case(loc, _, _, _)            -> loc

@@ -45,6 +45,7 @@ and continuation_action =
   | PAIR_FST of expr * env
   | FST
   | SND
+  | PROJ of pos
   | MKINL
   | MKINR
   | MKREF

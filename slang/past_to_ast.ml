@@ -41,6 +41,7 @@ let rec translate_expr = function
     | Past.Tuple(_, el)      -> Ast.Tuple(List.map translate_expr el)
     | Past.Fst(_, e)         -> Ast.Fst(translate_expr e)
     | Past.Snd(_, e)         -> Ast.Snd(translate_expr e)
+    | Past.Proj(_, pos, e)   -> Ast.Proj(pos, translate_expr e)
     | Past.Inl(_, _, e)       -> Ast.Inl(translate_expr e)
     | Past.Inr(_, _, e)       -> Ast.Inr(translate_expr e)
     | Past.Case(_, e, l1, l2) ->

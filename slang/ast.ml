@@ -16,6 +16,7 @@ type expr =
        | Tuple of expr list
        | Fst of expr
        | Snd of expr
+       | Proj of int * expr
        | Inl of expr
        | Inr of expr
        | Case of expr * lambda * lambda
@@ -82,6 +83,7 @@ let rec pp_expr ppf = function
             el) ^ ")")
     | Fst e            -> fprintf ppf "fst(%a)" pp_expr e
     | Snd e            -> fprintf ppf "snd(%a)" pp_expr e
+    | Proj(pos, e)     -> fprintf ppf "#%s(%a)" (string_of_int pos) pp_expr e
     | Inl e            -> fprintf ppf "inl(%a)" pp_expr e
     | Inr e            -> fprintf ppf "inr(%a)" pp_expr e
     | Case(e, (x1, e1), (x2, e2)) ->
@@ -154,6 +156,7 @@ let rec string_of_expr = function
     | Tuple(el)        -> mk_con "Tuple" (List.map string_of_expr el)
     | Fst e            -> mk_con "Fst" [string_of_expr e]
     | Snd e            -> mk_con "Snd" [string_of_expr e]
+    | Proj(pos, e)     -> mk_con "Proj" [string_of_int pos; string_of_expr e]
     | Inl e            -> mk_con "Inl" [string_of_expr e]
     | Inr e            -> mk_con "Inr" [string_of_expr e]
     | Lambda(x, e)     -> mk_con "Lambda" [x; string_of_expr e]

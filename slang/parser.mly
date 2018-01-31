@@ -12,7 +12,7 @@ let get_loc = Parsing.symbol_start_pos
 %token<string> IDENT
 %token EOF LPAREN RPAREN COMMA COLON SEMICOLON ADD SUB MUL DIV NOT EQUAL LT ANDOP OROP
 %token WHAT UNIT AND TRUE FALSE IF FI THEN ELSE LET REC IN BEGIN END BOOL INTTYPE UNITTYPE
-%token ARROW BAR INL INR FST SND FUN NUF CASE OF REF ASSIGN BANG WHILE DO OD
+%token ARROW BAR INL INR FST SND FUN NUF CASE OF REF ASSIGN BANG WHILE DO OD HASH
 
 /*
 The precedences must be listed from low to high.
@@ -27,7 +27,7 @@ The precedences must be listed from low to high.
 */
 %nonassoc UMINUS
 /* Finally, the first tokens of simple_expr are above everything else. */
-%nonassoc UNIT INT WHAT IDENT TRUE FALSE LPAREN NOT BANG REF /* highest precedence */
+%nonassoc UNIT INT WHAT IDENT TRUE FALSE LPAREN NOT BANG REF HASH /* highest precedence */
 
 %nonassoc below_COMMA
 %left COMMA /* expr/expr_comma_list (e,e,e) */
@@ -83,6 +83,7 @@ expr:
 | WHILE expr DO expr END              { Past.While(get_loc(), $2, $4) }
 | FST expr %prec UMINUS              { Past.Fst(get_loc(), $2) }
 | SND expr %prec UMINUS              { Past.Snd(get_loc(), $2) }
+| HASH;INT expr %prec UMINUS         { Past.Proj(get_loc(), $2, $3) }
 | INL texpr expr %prec UMINUS        { Past.Inl(get_loc(), $2, $3) }
 | INR texpr expr %prec UMINUS        { Past.Inr(get_loc(), $2, $3) }
 | FUN LPAREN IDENT COLON texpr RPAREN ARROW expr END

@@ -16,6 +16,7 @@ type expr =
        | Tuple of expr list
        | Fst of expr 
        | Snd of expr 
+       | Proj of int * expr
        | Inl of expr 
        | Inr of expr 
        | Case of expr * lambda * lambda 

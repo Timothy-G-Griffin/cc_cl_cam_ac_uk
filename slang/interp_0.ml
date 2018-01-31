@@ -152,6 +152,11 @@ let rec interpret (e, env, store) =
                            | (TUPLE (_::v2::_), store') -> (v2, store')
                            | (v, _) -> complain "runtime error.  Expecting a tuple!"
                           )
+    | Proj(pos, e)     -> (match interpret(e, env, store) with
+                           | (TUPLE (vs), store') -> (try (List.nth vs (pos - 1), store') with
+                              | _ -> complain "runtime error. Invalid projection!")
+                           | (v, _) -> complain "runtime error.  Expecting a tuple!"
+                          )
     | Inl e            -> let (v, store') = interpret(e, env, store) in (INL v, store')
     | Inr e            -> let (v, store') = interpret(e, env, store) in (INR v, store')
     | Case(e, (x1, e1), (x2, e2)) ->

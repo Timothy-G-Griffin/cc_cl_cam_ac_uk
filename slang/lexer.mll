@@ -37,6 +37,7 @@ rule token = parse
   | "->" { ARROW }
   | "?" { WHAT }
   | "!" { BANG }
+  | "#" { HASH }
   | "()" { UNIT }
   | "and" { AND }
   | "true" { TRUE }
