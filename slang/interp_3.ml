@@ -31,7 +31,7 @@ type value =
      | INT of int
      | BOOL of bool
      | UNIT
-     | PAIR of value * value
+     | TUPLE of value list
      | INL of value
      | INR of value
      | CLOSURE of location * env
@@ -47,10 +47,11 @@ and instruction =
   | BIND of var
   | FST
   | SND
+  | PROJ of int
   | DEREF
   | APPLY
   | RETURN
-  | MK_PAIR
+  | MK_TUPLE of int
   | MK_INL
   | MK_INR
   | MK_REF
@@ -112,7 +113,7 @@ let rec string_of_value = function
      | BOOL b         -> string_of_bool b
      | INT n          -> string_of_int n
      | UNIT           -> "UNIT"
-     | PAIR(v1, v2)    -> "(" ^ (string_of_value v1) ^ ", " ^ (string_of_value v2) ^ ")"
+     | TUPLE(vs)      -> "(" ^ (String.concat ", " (List.map string_of_value vs)) ^ ")"
      | INL v           -> "inl(" ^ (string_of_value v) ^ ")"
      | INR  v          -> "inr(" ^ (string_of_value v) ^ ")"
      | CLOSURE (loc, c) -> "CLOSURE(" ^ (string_of_closure (loc, c)) ^ ")"
@@ -131,9 +132,10 @@ and string_of_location = function
 and string_of_instruction = function
  | UNARY op -> "UNARY " ^ (string_of_uop op)
  | OPER op  -> "OPER " ^ (string_of_bop op)
- | MK_PAIR  -> "MK_PAIR"
+ | MK_TUPLE(sz) -> "MK_TUPLE(" ^ (string_of_int sz) ^ ")"
  | FST      -> "FST"
  | SND      -> "SND"
+ | PROJ(pos)    -> "PROJ(" ^ (string_of_int pos) ^ ")"
  | MK_INL   -> "MK_INL"
  | MK_INR   -> "MK_INR"
  | MK_REF   -> "MK_REF"
@@ -221,6 +223,7 @@ let do_oper = function
 
 
 let step (cp, evs) =
+  let complain_state msg = complain ("step : bad state = " ^ (string_of_state (cp, evs)) ^ msg ^ "\n") in
  match (get_instruction cp, evs) with
  | (PUSH v,                            evs) -> (cp + 1, (V v) :: evs)
  | (POP,                          s :: evs) -> (cp + 1, evs)
@@ -229,9 +232,22 @@ let step (cp, evs) =
  | (LOOKUP x,                          evs) -> (cp + 1, V(search(evs, x)) :: evs)
  | (UNARY op,                 (V v) :: evs) -> (cp + 1, V(do_unary(op, v)) :: evs)
  | (OPER op,       (V v2) :: (V v1) :: evs) -> (cp + 1, V(do_oper(op, v1, v2)) :: evs)
- | (MK_PAIR,       (V v2) :: (V v1) :: evs) -> (cp + 1, V(PAIR(v1, v2)) :: evs)
- | (FST,             V(PAIR (v, _)) :: evs) -> (cp + 1, (V v) :: evs)
- | (SND,             V(PAIR (_, v)) :: evs) -> (cp + 1, (V v) :: evs)
+ | (MK_TUPLE sz, evs) -> 
+  let rec take = function
+    | (0, rest) -> Some(([], rest))
+    | (n, []) -> None
+    | (n, (V v)::tl) -> (match (take (n - 1, tl)) with
+      | None -> None
+      | Some((p, t)) -> Some((v::p, t)))
+    | (n, _::_) -> None
+  in (match take (sz, evs) with
+   | None -> complain_state ""
+   | Some((vs,evs')) -> (cp + 1, V(TUPLE(List.rev vs)) :: evs'))
+ | (FST,             V(TUPLE (v::_)) :: evs) -> (cp + 1, (V v) :: evs)
+ | (SND,             V(TUPLE (_::v::_)) :: evs) -> (cp + 1, (V v) :: evs)
+ | (PROJ pos,        V(TUPLE (vs)) :: evs)  -> 
+    (try (cp + 1, (V (List.nth vs (pos - 1))) :: evs) with
+    | _ -> complain_state "(invalid projection)")
  | (MK_INL,                   (V v) :: evs) -> (cp + 1, V(INL v) :: evs)
  | (MK_INR,                   (V v) :: evs) -> (cp + 1, V(INR v) :: evs)
  | (CASE (_, Some _),        V(INL v)::evs) -> (cp + 1, (V v) :: evs)
@@ -250,7 +266,7 @@ let step (cp, evs) =
  | (LABEL l,                           evs) -> (cp + 1, evs)
  | (HALT,                              evs) -> (cp, evs)
  | (GOTO (_, Some i),                  evs) -> (i, evs)
- | _ -> complain ("step : bad state = " ^ (string_of_state (cp, evs)) ^ "\n")
+ | _ -> complain_state ""
 
 (* COMPILE *)
 
@@ -268,11 +284,12 @@ let rec comp = function
   | Op(e1, op, e2)     -> let (defs1, c1) = comp e1 in
                           let (defs2, c2) = comp e2 in
                           (defs1 @ defs2, c1 @ c2 @ [OPER op])
-  | Tuple(e1::e2::_)   -> let (defs1, c1) = comp e1 in
-                          let (defs2, c2) = comp e2 in
-                          (defs1 @ defs2, c1 @ c2 @ [MK_PAIR])
+  | Tuple(es)   -> let (defs, cs) = List.split (List.map comp es) in
+                   let sz = List.length es in
+                    (List.flatten defs, (List.flatten cs) @ [MK_TUPLE sz])
   | Fst e              -> let (defs, c) = comp e in (defs, c @ [FST])
   | Snd e              -> let (defs, c) = comp e in (defs, c @ [SND])
+  | Proj(pos, e)       -> let (defs, c) = comp e in (defs, c @ [PROJ pos])
   | Inl e              -> let (defs, c) = comp e in (defs, c @ [MK_INL])
   | Inr e              -> let (defs, c) = comp e in (defs, c @ [MK_INR])
   | Case(e1, (x1, e2), (x2, e3)) ->

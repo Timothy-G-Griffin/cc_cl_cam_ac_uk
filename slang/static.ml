@@ -37,15 +37,11 @@ let rec find loc x = function
   | [] -> complain (x ^ " is not defined at " ^ (string_of_loc loc))
   | (y, v) :: rest -> if x = y then v else find loc x rest
 
-let rec unzip = function
-    | [] -> ([], [])
-    | (x,y)::tl -> let (xs, ys) = unzip tl in (x::xs, y::ys)
-
 (* may want to make this more interesting someday ... *)
 let rec match_types (t1, t2) = (t1 = t2)
 
 let make_tuple loc ets =
-    let (es, ts) = unzip ets in
+    let (es, ts) = List.split ets in
     (Tuple(loc, es), TEproduct(ts))
 let make_inl loc t2 (e, t1)          = (Inl(loc, t2, e), TEunion(t1, t2))
 let make_inr loc t1 (e, t2)          = (Inr(loc, t1, e), TEunion(t1, t2))

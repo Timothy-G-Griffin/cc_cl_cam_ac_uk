@@ -241,7 +241,7 @@ let do_oper = function
 *)
 
 let step state = 
-  let complain_state () = complain ("step : bad state = " ^ (string_of_interp_state state) ^ "\n") in
+  let complain_state msg = complain ("step : bad state = " ^ (string_of_interp_state state) ^ msg ^ "\n") in
   match state with
 (* (code stack,         value/env stack, state) -> (code stack,  value/env stack, state) *)
  | ((PUSH v) :: ds,                        evs, s) -> (ds, (V v) :: evs, s)
@@ -261,15 +261,13 @@ let step state =
     | (n, _::_) -> None
   (* We expect exactly sz values to form the tuple*)
   in (match take (sz, evs) with
-   | None -> complain_state ()
+   | None -> complain_state ""
    | Some((vs,evs')) -> (ds, V(TUPLE(List.rev vs))::evs', s))
-        (* (ds, V(PAIR(v1, v2)) :: evs, s) *)
  | (FST :: ds,           V(TUPLE (v::_)) :: evs, s) -> (ds, (V v) :: evs, s)
  | (SND :: ds,           V(TUPLE (_::v::_)) :: evs, s) -> (ds, (V v) :: evs, s)
  | (PROJ(pos) :: ds,     V(TUPLE (vs)) :: evs, s)  -> 
     (try (ds, (V (List.nth vs (pos - 1))) :: evs, s) with
-    | _ -> complain ("step : invalid projection = " ^ (string_of_int pos) ^
-                    "; state " ^ (string_of_interp_state state) ^ "\n"))
+    | _ -> complain_state "(invalid projection)")
  | (MK_INL :: ds,                 (V v) :: evs, s) -> (ds, V(INL v) :: evs, s)
  | (MK_INR :: ds,                 (V v) :: evs, s) -> (ds, V(INR v) :: evs, s)
  | (CASE (c1,  _) :: ds,         V(INL v)::evs, s) -> (c1 @ ds, (V v) :: evs, s)
@@ -285,7 +283,7 @@ let step state =
  | (MK_REC(f, c) :: ds,                    evs, s) -> (ds,  V(mk_rec(f, c, evs_to_env evs)) :: evs, s)
  | (APPLY :: ds,  V(CLOSURE (c, env)) :: (V v) :: evs, s)
                                                    -> (c @ ds, (V v) :: (EV env) :: evs, s)
- | _ -> complain_state ()
+ | _ -> complain_state ""
 
 let rec driver n state =
   let _ = if Option.verbose
