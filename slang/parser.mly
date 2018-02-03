@@ -27,6 +27,7 @@ let get_loc = Parsing.symbol_start_pos
                    
 %start start
 %type <Past.type_expr> texpr
+%type <Past.expr> tuple_expr
 %type <Past.expr> simple_expr 
 %type <Past.expr> expr 
 %type <Past.expr list> exprlist
@@ -45,6 +46,11 @@ start:
     e1 - e2  (is the e1(-e2) or e1-e2???) 
 */
 
+tuple_expr:
+| expr { $1 }
+| tuple_expr COMMA expr {Past.Pair(get_loc(), $1, $3) }
+
+
 simple_expr:
 | UNIT                               { Past.Unit (get_loc())}
 | INT                                { Past.Integer (get_loc(), $1) }
@@ -52,8 +58,7 @@ simple_expr:
 | IDENT                              { Past.Var (get_loc(), $1) }
 | TRUE                               { Past.Boolean (get_loc(), true)}
 | FALSE                              { Past.Boolean (get_loc(), false)}
-| LPAREN expr RPAREN                 { $2 }
-| expr COMMA expr {Past.Pair(get_loc(), $1, $3) }
+| LPAREN tuple_expr RPAREN { $2 }
 | NOT simple_expr               { Past.UnaryOp(get_loc(), Past.NOT, $2) }
 | BANG simple_expr              { Past.Deref(get_loc(), $2) }
 | REF simple_expr               { Past.Ref(get_loc(), $2) }
