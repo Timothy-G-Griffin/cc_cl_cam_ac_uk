@@ -13,7 +13,8 @@ let get_loc = Parsing.symbol_start_pos
 %token WHAT UNIT AND TRUE FALSE IF FI THEN ELSE LET REC IN BEGIN END BOOL INTTYPE UNITTYPE 
 %token ARROW BAR INL INR FST SND FUN NUF CASE OF REF ASSIGN BANG WHILE DO OD 
 
-%left ADD SUB                     /* lowest precedence */
+%left COMMA                     /* lowest precedence */
+%left ADD SUB
 %left MUL DIV ANDOP OROP EQUAL ARROW  LT /* medium precedence */
 %left ASSIGN              
 /*
@@ -52,15 +53,13 @@ simple_expr:
 | TRUE                               { Past.Boolean (get_loc(), true)}
 | FALSE                              { Past.Boolean (get_loc(), false)}
 | LPAREN expr RPAREN                 { $2 }
-| LPAREN expr COMMA simple_expr {let x = $4 in Past.Pair(get_loc(), $2, x) }
-| expr COMMA simple_expr {let x = $3 in Past.Pair(get_loc(), $1, x) }
-| expr RPAREN { $1 }
+| expr COMMA expr {Past.Pair(get_loc(), $1, $3) }
 | NOT simple_expr               { Past.UnaryOp(get_loc(), Past.NOT, $2) }
 | BANG simple_expr              { Past.Deref(get_loc(), $2) }
 | REF simple_expr               { Past.Ref(get_loc(), $2) }
 
 expr:
-| simple_expr                        {  $1 }
+| simple_expr                        { $1 }
 | expr simple_expr                   { Past.App (get_loc(), $1, $2) } 
 | SUB expr %prec UNIT                { Past.UnaryOp(get_loc(), Past.NEG, $2) } 
 | expr ADD expr                      { Past.Op(get_loc(), $1, Past.ADD, $3) }

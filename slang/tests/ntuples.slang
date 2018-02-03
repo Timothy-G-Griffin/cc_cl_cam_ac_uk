@@ -1,3 +1,5 @@
-let x : int*int*int*int*int*int*int*int = (1,2,3,4,5,6,7,8) in
-    x
+let z1(x1: int) : int = x1 + 0 in 
+ let z2(x2: int) : int = z1(x2) + 1 in
+    z2(1)
+ end 
 end
