@@ -20,6 +20,7 @@ let translate_bop = function
   | Past.ADD -> Ast.ADD 
   | Past.MUL -> Ast.MUL
   | Past.DIV -> Ast.DIV
+  | Past.MOD -> Ast.MOD
   | Past.SUB -> Ast.SUB
   | Past.LT -> Ast.LT
   | Past.AND -> Ast.AND

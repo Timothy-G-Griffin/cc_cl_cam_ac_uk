@@ -301,6 +301,7 @@ let do_oper = function
   | (SUB,  STACK_INT m,   STACK_INT n)  -> STACK_INT (m - n)
   | (MUL,  STACK_INT m,   STACK_INT n)  -> STACK_INT (m * n)
   | (DIV,  STACK_INT m,   STACK_INT n)  -> STACK_INT (m / n)
+  | (MOD,  STACK_INT m,   STACK_INT n)  -> STACK_INT (m mod n)
   | (op, _, _)  -> Errors.complain ("do_oper: malformed binary operator: " ^ (string_of_oper op))
 
 

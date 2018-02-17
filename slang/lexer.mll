@@ -27,6 +27,7 @@ rule token = parse
   | "-" { SUB }
   | "*" { MUL }
   | "/" { DIV }
+  | "%" { MOD }
   | "~" { NOT }
   | "=" { EQUAL }
   | ":=" { ASSIGN }
