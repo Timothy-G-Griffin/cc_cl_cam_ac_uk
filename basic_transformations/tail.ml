@@ -47,7 +47,7 @@ let gcd_iter (m, n) =
 let l2 = List.map gcd_iter [(24, 638); (17, 289); (31, 1889)] 
 
 
-(* Here is the mother of all tail-recurive functions *) 
+(* Here is the mother of all tail-recursive functions *) 
 let rec my_while (test, body) () = 
         if test() then my_while(test, body) (body())
 
