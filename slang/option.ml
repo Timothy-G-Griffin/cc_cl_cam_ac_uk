@@ -11,6 +11,7 @@ let use_i1         = ref false
 let use_i2         = ref false
 let use_i3         = ref false
 let use_i4         = ref false
+let use_i4x86      = ref false			 
 let use_all ()     =
    use_i0 := true;
    use_i1 := true;
@@ -32,6 +33,7 @@ let option_spec = [
      ("-i2",   Arg.Set use_i2,        "Interpreter 2" );
      ("-i3",   Arg.Set use_i3,        "Interpreter 3" );
      ("-i4",   Arg.Set use_i4,        "Jargon VM" );
+     ("-i4x86", Arg.Set use_i4x86,    "Jargon code to x86" );     
      ("-all",  Arg.Unit use_all,      "all interpreters");
      ("-stackmax",  Arg.Set_int stack_max, "set max stack size (default = 1000)");
      ("-heapmax",  Arg.Set_int heap_max, "set max heap size (default = 1000)");
@@ -54,6 +56,7 @@ let use_i1        = !use_i1
 let use_i2        = !use_i2
 let use_i3        = !use_i3
 let use_i4        = !use_i4
+let use_i4x86     = !use_i4x86		     
 let show_compiled = !show_compiled
 let stack_max     = !stack_max
 let heap_max      = !heap_max

@@ -26,6 +26,8 @@ A few comments on the code below:
 -- the scratch register %r11 is used to hold a pointer to 
    the heap, which is passed in by the runtime system. 
 -- register %rax is being used for scratch, not really as an accumulator. 
+-- Close inspection of generated code will reveal why it would be good idea
+   to use %rax as an accumulator. That is, always have to top-of-stack in %rax. 
 -- The only function calls/returns that follow the C calling 
    conventions are those that interact with the runtime system
    (the "alloc" function is called to allocate records on the heap, 
@@ -53,16 +55,7 @@ let emit_x86 e =
                 		 then "\t\t"
 				 else "\t" 	
 	         in output_string out_chan ("\t" ^ c ^ tab_string ^ "# " ^ s ^"\n"))
-		 
-    in let emit_header () =
-	 (tab ".text";
-	  tab ".extern alloc" ;
-	  tab ".extern make_closure";
-	  tab ".extern make_recursive_closure";
-	  tab ".extern read";
-	  tab ".globl giria";
-	  tab ".type giria, @function")
-
+		 	 
     in let label l = output_string out_chan (l ^ ":\n")
 				      
     in let unary = function
@@ -145,7 +138,7 @@ let emit_x86 e =
 		     cmd "movq %r10,(%rsp)"  (Some "END FST, replace top-of-stack with element 1"))
 		      
     in let snd () = (cmd "movq (%rsp),%rax"  (Some "BEGIN SND, copy heap pointer");
-		     cmd "movq 8(%rax),%r10"  (Some "copy element 2 to scratch register");
+		     cmd "movq 8(%rax),%r10" (Some "copy element 2 to scratch register");
 		     cmd "movq %r10,(%rsp)"  (Some "END SND, replace top-of-stack with element 2"))
 		      
     in let mkinl () = 
@@ -174,9 +167,9 @@ let emit_x86 e =
 
    in let case l =
 	(cmd "popq %rax"            (Some "BEGIN case, pop heap pointer into %rax");
-	 cmd "movq 8(%rax), %r10"   (Some "get the value");
+	 cmd "movq 8(%rax),%r10"    (Some "get the value");
 	 cmd "pushq %r10"           (Some "push the value"); 	 	 
-	 cmd "movq (%rax), %r10"    (Some "get tag"); 
+	 cmd "movq (%rax),%r10"     (Some "get tag"); 
 	 cmd "cmpq $0,%r10"         (Some "compare tag to inl tag"); 
 	 cmd ("jne " ^ l)           (Some "END case, jump if not equal"))
 
@@ -297,8 +290,15 @@ let emit_x86 e =
     in let do_command s = if 0 = Sys.command s then () else Errors.complain ("command failed: " ^ s) 
     
     in let (defs, cl) = comp [] e           (* compile to Jargon code with Jargon.comp  *) 						     
-    in (emit_header ();                     
+       in (* emit header *)
+       (tab ".text";
+        tab ".extern alloc" ;
+	tab ".extern read";
+	tab ".globl giria";
+	tab ".type giria, @function";
+	
         emitl defs;                         (* the function definitions *)
+
 	output_string out_chan "giria:\n";  (* label for main body of slang program *)
 	
 	cmd "pushq %rbp"	(Some "BEGIN giria : save base pointer"); 
@@ -314,6 +314,7 @@ let emit_x86 e =
 	
         flush out_chan;
         close_out out_chan;
+	
 	(* compile and link with runtime.  Comment out these lines if you don't have gcc installed. *)
 	do_command "gcc -g -o runtime/c_runtime.o -c runtime/c_runtime.c"; 
         do_command ("gcc -g -o " ^ base_name ^ ".o -c " ^ base_name ^ ".s");

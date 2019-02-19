@@ -83,12 +83,17 @@ type vm_state =
     mutable status : status_code; 
   } 
 
+val new_label : unit -> string
+			  
 val step : vm_state -> vm_state 
 
 val driver : int -> vm_state -> vm_state 
 
 type listing = instruction list 
 
+val comp : (Past.var * value_path) list ->
+           Ast.expr -> instruction list * instruction list
+			    
 val compile : Ast.expr -> listing 
 
 val run : listing -> vm_state

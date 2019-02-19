@@ -10,6 +10,7 @@ val use_i1: bool
 val use_i2: bool
 val use_i3: bool
 val use_i4: bool
+val use_i4x86: bool	      
 val show_compiled: bool
 val stack_max: int
 val heap_max: int

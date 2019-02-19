@@ -414,7 +414,7 @@ let assign vm =
     let (c1, vm1) = pop_top vm in 
     let (c2, vm2) = pop_top vm1 in 
     match c2 with 
-    | STACK_HI a -> 
+    | STACK_HI a ->
         if vm.sp < vm.heap_bound 
         then let _ = Array.set vm.heap a (stack_to_heap_item c1) in push(STACK_UNIT, vm)
         else { vm with status = HeapIndexOutOfBound } 
@@ -715,3 +715,5 @@ let compile e =
     in result 
 
 let interpret e = run (compile e)
+
+		     
