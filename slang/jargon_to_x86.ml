@@ -68,7 +68,7 @@ let emit_x86 e =
 		    cmd "pushq %r11"   (Some "%r11 is caller-saved "); 
 		    cmd "call read"    (Some "get user input");
 		    cmd "popq %r11"    (Some "restore %r11"); 		    
-		    cmd "pushq %rax"   (Some "END read, a C-call, so result in %rax"));
+		    cmd "pushq %rax"   (Some "END read, a C-call, so result in %rax \n"));
 
     in let eq () =(let l1 = new_label () in (* label for not = *) 
 		   let l2  = new_label () in  (* label for exit *) 
@@ -79,7 +79,7 @@ let emit_x86 e =
 		   cmd "pushq $1"          (Some "push true");
 		   cmd ("jmp " ^ l2)       (Some "jump to exit label");
 		   label l1;
-		   cmd "pushq $0"          (Some "END EQ, push false");
+		   cmd "pushq $0"          (Some "END EQ, push false \n");
 		   label l2))
 		    
     in let binary = function
@@ -96,7 +96,7 @@ let emit_x86 e =
 		   cmd "pushq $1"          (Some "push true");
 		   cmd ("jmp " ^ l2)       (Some "jump to exit label");
 		   label l1;
-		   cmd "pushq $0"          (Some "END EQI, push false");
+		   cmd "pushq $0"          (Some "END EQI, push false \n");
 		   label l2))
 		   
 	 | EQB -> eq ()
@@ -104,21 +104,21 @@ let emit_x86 e =
 	 | EQI -> eq ()
 		     
 	 | ADD -> (cmd "popq %rax"         (Some "BEGIN add, pop top-of-stack to %rax"); 
-		   cmd "addq %rax,(%rsp)"  (Some "END add, add %rax to top-of-stack"))
+		   cmd "addq %rax,(%rsp)"  (Some "END add, add %rax to top-of-stack \n"))
 		    
 	 | SUB -> (cmd "popq %rax"         (Some "BEGIN sub, pop top-of-stack to %rax"); 
-		   cmd "subq %rax,(%rsp)"  (Some "END sub, subtract %rax from top-of-stack"))
+		   cmd "subq %rax,(%rsp)"  (Some "END sub, subtract %rax from top-of-stack \n"))
 		    
 	 | MUL -> (cmd "popq %rax"         (Some "BEGIN mul, pop arg 1 to %rax");
 		   cmd "popq %r10"         (Some "pop arg 2 to %r10"); 
 		   cmd "imulq %r10"        (Some "multiply %r10 by %rax, result in %rax"); 
-		   cmd "pushq %rax"        (Some "END mul, push result "))
+		   cmd "pushq %rax"        (Some "END mul, push result \n"))
 		    
 	 | DIV -> (cmd "popq %r10"         (Some "BEGIN div, , pop top-of-stack to %rax");
 		   cmd "popq %rax"         (Some "pop divisor into %r10"); 
 		   cmd "cqto"              (Some "prepare for div (read x86 docs!)");		   
 		   cmd "idivq %r10"        (Some "do the div, result in %rax"); 
-		   cmd "pushq %rax"        (Some "END div, push result"))
+		   cmd "pushq %rax"        (Some "END div, push result \n"))
 	   
     in let mkpair () =
 	 (cmd "movq %r11,%rdi"        (Some "BEGIN make pair, alloc arg 1 in %rdi"); 
@@ -131,15 +131,15 @@ let emit_x86 e =
 	  cmd "movq %r10,8(%rax)"     (Some "copy element 2 to heap");
 	  cmd "popq %r10"             (Some "pop element 1 into %r10");	  	  
 	  cmd "movq %r10,(%rax)"      (Some "copy element 1 to heap");
-	  cmd "pushq %rax"            (Some "END make pair, push heap pointer on stack"))
+	  cmd "pushq %rax"            (Some "END make pair, push heap pointer on stack \n"))
 	 
     in let fst () = (cmd "movq (%rsp),%rax"  (Some "BEGIN FST, copy heap pointer");
 		     cmd "movq (%rax),%r10"  (Some "copy element 1 to scratch register");
-		     cmd "movq %r10,(%rsp)"  (Some "END FST, replace top-of-stack with element 1"))
+		     cmd "movq %r10,(%rsp)"  (Some "END FST, replace top-of-stack with element 1 \n"))
 		      
     in let snd () = (cmd "movq (%rsp),%rax"  (Some "BEGIN SND, copy heap pointer");
 		     cmd "movq 8(%rax),%r10" (Some "copy element 2 to scratch register");
-		     cmd "movq %r10,(%rsp)"  (Some "END SND, replace top-of-stack with element 2"))
+		     cmd "movq %r10,(%rsp)"  (Some "END SND, replace top-of-stack with element 2 \n"))
 		      
     in let mkinl () = 
 	 (cmd "movq %r11,%rdi"        (Some "BEGIN make inl, alloc arg 1 in %rdi"); 
@@ -151,7 +151,7 @@ let emit_x86 e =
 	  cmd "movq $0,(%rax)"        (Some "copy inl tag to the heap");
 	  cmd "popq %r10"             (Some "pop argument into %r10");	  
 	  cmd "movq %r10,8(%rax)"     (Some "copy argument to the heap");
-	  cmd "pushq %rax"            (Some "END make inl, push heap pointer"))
+	  cmd "pushq %rax"            (Some "END make inl, push heap pointer \n"))
 
    in let mkinr () =
 	 (cmd "movq %r11,%rdi"        (Some "BEGIN make inr, alloc is a C call, arg 1 in %rdi");
@@ -163,7 +163,7 @@ let emit_x86 e =
 	  cmd "movq $1,(%rax)"        (Some "copy inr tag to the heap");
 	  cmd "popq %r10"             (Some "pop argument into %r10");	  	  
 	  cmd "movq %r10,8(%rax)"     (Some "copy argument to the heap");
-	  cmd "pushq %rax"            (Some "END make inr, push heap pointer"))
+	  cmd "pushq %rax"            (Some "END make inr, push heap pointer \n"))
 
    in let case l =
 	(cmd "popq %rax"            (Some "BEGIN case, pop heap pointer into %rax");
@@ -171,25 +171,25 @@ let emit_x86 e =
 	 cmd "pushq %r10"           (Some "push the value"); 	 	 
 	 cmd "movq (%rax),%r10"     (Some "get tag"); 
 	 cmd "cmpq $0,%r10"         (Some "compare tag to inl tag"); 
-	 cmd ("jne " ^ l)           (Some "END case, jump if not equal"))
+	 cmd ("jne " ^ l)           (Some "END case, jump if not equal \n"))
 
   in let stack_lookup i =
       (* pointers in x86-land are at byte-level, so for every word advanced
          need to multiply by 8 (number of bytes in 64-bit word *)	    
 	(let j = string_of_int (8 * i) in  	   	    
          (cmd ("movq " ^ j ^ "(%rbp)" ^ ",%r10") (Some "BEGIN stack lookup, index off of base pointer");
-	  cmd ("pushq %r10")                     (Some "END stack lookup, push value")))
+	  cmd ("pushq %r10")                     (Some "END stack lookup, push value \n")))
 	                        
    in let heap_lookup i =
 	(let j = string_of_int (8 * i) in  	   
 	 (cmd "movq 8(%rbp), %rax"               (Some "BEGIN heap lookup, copy closure pointer to %rax");
  	  cmd ("movq " ^ j ^ "(%rax)" ^ ",%r10") (Some ("put closue value at index " ^ (string_of_int i) ^ " in scratch register"));
-	  cmd "pushq %r10"                       (Some "END heap lookup, push value")))
+	  cmd "pushq %r10"                       (Some "END heap lookup, push value \n")))
 
    in let test l = 
 	(cmd "popq %rax"            (Some "BEGIN test, pop stack-top into %rax");
 	 cmd "cmp $1,%rax"          (Some "compare to value of true"); 
-	 cmd ("jne " ^ l)           (Some "END test, jump if not equal"))     
+	 cmd ("jne " ^ l)           (Some "END test, jump if not equal \n"))     
 
    in let goto l = cmd ("jmp " ^ l) None
 			  
@@ -197,7 +197,7 @@ let emit_x86 e =
 	 (cmd "movq (%rsp),%rax"      (Some "BEGIN swap");
 	  cmd "movq 8(%rsp),%r10"      None;
 	  cmd "movq %r10,(%rsp)"       None;	  
-	  cmd "movq %rax,8(%rsp)"     (Some "END swap"))
+	  cmd "movq %rax,8(%rsp)"     (Some "END swap \n"))
 	   
    in let mkref () =
 	 (cmd "movq %r11,%rdi"        (Some "BEGIN make ref, alloc arg 1 in %rdi");        
@@ -208,34 +208,34 @@ let emit_x86 e =
 	  cmd "popq %r11"             (Some "restore %r11"); 		    	  	  
 	  cmd "popq %r10"             (Some "copy value into scratch register"); 	  
 	  cmd "movq %r10,(%rax)"      (Some "copy value to heap"); 
-	  cmd "pushq %rax"            (Some "END make ref, push heap pointer"))
+	  cmd "pushq %rax"            (Some "END make ref, push heap pointer \n"))
 	   
     in let deref () =
 	 (cmd "movq (%rsp),%rax"      (Some "BEGIN deref, copy ref pointer to $aux");
    	  cmd "movq (%rax),%rax"      (Some "copy value to %rax"); 
-   	  cmd "movq %rax,(%rsp)"      (Some "END deref, replace top-of-stack with value"))
+   	  cmd "movq %rax,(%rsp)"      (Some "END deref, replace top-of-stack with value \n"))
 	   
     in let assign () =
 	 (cmd "popq %rax"          (Some "BEGIN assign, pop value into %rax");
 	  cmd "movq %rax,(%rsp)"   (Some "copy value to ref cell in heap");
-      	  cmd "movq $0,(%rsp)"     (Some "END assign, replace heap pointer with unit"))
+      	  cmd "movq $0,(%rsp)"     (Some "END assign, replace heap pointer with unit \n"))
 
     in let closure(l, n) =
 	(let m = string_of_int (n + 1) in 
-	 (cmd "movq %r11,%rdi"                   (Some "BEGIN closure, alloc arg 1 in %rdi"); 
+	 (cmd "movq %r11,%rdi"                   (Some "BEGIN make closure, alloc arg 1 in %rdi"); 
 	  cmd ("movq $" ^ m ^ ",%rsi")           (Some "arg 2 to alloc in %rsi");
 	  cmd "movq $0,%rax"                     (Some "signal no floating point args");
 	  cmd "pushq %r11"                       (Some "%r11 is caller-saved ");	  
 	  cmd "call alloc"                       (Some "... result in %rax");
 	  cmd "popq %r11"                        (Some "restore %r11"); 		    	  	  
 	  cmd ("leaq " ^ l ^ "(%rip)" ^ ",%r10") (Some "place code address in scratch register");
-	  cmd ("movq %r10,(%rax)")               (Some "place code address in heap closure");
+	  cmd ("movq %r10,(%rax)")               (Some "place code address in heap closure \n");
    	  for i = 1 to n do
 	    let j = string_of_int (8 * i) in  
 	    (cmd ("popq %r10")                   (Some "pop value into the scratch register");
-	     cmd ("movq %r10," ^ j ^ "(%rax)")   (Some "copy value to the heap"))
+	     cmd ("movq %r10," ^ j ^ "(%rax)")   (Some "copy value to the heap \n"))
 	  done; 
-	  cmd "pushq %rax"                       (Some "END closure, push heap pointer returned by alloc")))
+	  cmd "pushq %rax"                       (Some "END make closure, push heap pointer returned by alloc \n")))
 	      
 	      
     in let apply () =
@@ -247,13 +247,13 @@ let emit_x86 e =
 	     cmd "popq %rbp"          (Some "retore base pointer");	     
 	     cmd "addq $8, %rsp"      (Some "pop closure");
 	     cmd "addq $8, %rsp"      (Some "pop argument");
-	     cmd "pushq %rax"         (Some "END apply, push returned value on stack"))
+	     cmd "pushq %rax"         (Some "END apply, push returned value on stack \n"))
 	      
     in let ret () = 
 	    (cmd "popq %rax"         (Some "BEGIN return. put top-of-stack in %rax");
-      	     cmd "ret"               (Some "END retrun, this pops return address, jumps there"))
+      	     cmd "ret"               (Some "END retrun, this pops return address, jumps there \n"))
 	    
-	    
+    (* emit command *) 	    
     in let emitc = function
 	  | UNARY op -> unary op 
 	  | OPER op  -> binary op 
@@ -275,11 +275,11 @@ let emit_x86 e =
 	  | MK_CLOSURE ((l, _), n)         -> closure(l, n) 				  
 	  | LOOKUP (STACK_LOCATION offset) -> stack_lookup (0 - offset) (* stack grows downward, so negate offsets *) 
 	  | LOOKUP (HEAP_LOCATION offset)  -> heap_lookup offset			      
-	  | POP                     -> cmd "addq $8, %rsp" (Some "pop stack")
-	  | PUSH (STACK_INT i)      -> cmd ("pushq $" ^ (string_of_int i)) (Some "push int")
-	  | PUSH (STACK_BOOL true)  -> cmd "pushq $1" (Some "push true")
-	  | PUSH (STACK_BOOL false) -> cmd "pushq $0" (Some "push false")
-	  | PUSH STACK_UNIT         -> cmd "pushq $0" (Some "push false")
+	  | POP                     -> cmd "addq $8, %rsp" (Some "pop stack \n")
+	  | PUSH (STACK_INT i)      -> cmd ("pushq $" ^ (string_of_int i)) (Some "push int \n")
+	  | PUSH (STACK_BOOL true)  -> cmd "pushq $1" (Some "push true \n")
+	  | PUSH (STACK_BOOL false) -> cmd "pushq $0" (Some "push false \n")
+	  | PUSH STACK_UNIT         -> cmd "pushq $0" (Some "push false \n")
 	  | PUSH (STACK_HI i)       -> Errors.complain "Internal Error : Jargon code never explicitly pushes stack pointer"
 	  | PUSH (STACK_RA i)       -> Errors.complain "Internal Error : Jargon code never explicitly pushes return address"
 	  | PUSH (STACK_FP i)       -> Errors.complain "Internal Error : Jargon code never explicitly pushes frame pointer"
@@ -296,21 +296,21 @@ let emit_x86 e =
 	tab ".extern read";
 	tab ".globl giria";
 	tab ".type giria, @function";
-	
-        emitl defs;                         (* the function definitions *)
 
 	output_string out_chan "giria:\n";  (* label for main body of slang program *)
 	
 	cmd "pushq %rbp"	(Some "BEGIN giria : save base pointer"); 
 	cmd "movq %rsp,%rbp"    (Some "BEGIN giria : set new base pointer");
-	cmd "movq %rdi,%r11"    (Some "BEGIN giria : save pointer to heap in %r11");
+	cmd "movq %rdi,%r11"    (Some "BEGIN giria : save pointer to heap in %r11 \n");
 	
 	emitl cl;               (* main body of program *)
 	
 	cmd "popq %rax"         (Some "END giria : place return value in %rax"); 
 	cmd "movq %rbp,%rsp"	(Some "END giria : reset stack to previous base pointer");   
 	cmd "popq %rbp"	        (Some "END giria : restore base pointer");
-	cmd "ret"               (Some "END giria : return to runtime system");
+	cmd "ret"               (Some "END giria : return to runtime system \n");
+
+        emitl defs;             (* the function definitions *)
 	
         flush out_chan;
         close_out out_chan;
