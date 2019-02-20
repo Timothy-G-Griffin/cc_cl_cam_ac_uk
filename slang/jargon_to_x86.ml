@@ -229,11 +229,11 @@ let emit_x86 e =
 	  cmd "call alloc"                       (Some "... result in %rax");
 	  cmd "popq %r11"                        (Some "restore %r11"); 		    	  	  
 	  cmd ("leaq " ^ l ^ "(%rip)" ^ ",%r10") (Some "place code address in scratch register");
-	  cmd ("movq %r10,(%rax)")               (Some "place code address in heap closure \n");
+	  cmd ("movq %r10,(%rax)")               (Some "place code address in heap closure");
    	  for i = 1 to n do
 	    let j = string_of_int (8 * i) in  
 	    (cmd ("popq %r10")                   (Some "pop value into the scratch register");
-	     cmd ("movq %r10," ^ j ^ "(%rax)")   (Some "copy value to the heap \n"))
+	     cmd ("movq %r10," ^ j ^ "(%rax)")   (Some "copy value to the heap"))
 	  done; 
 	  cmd "pushq %rax"                       (Some "END make closure, push heap pointer returned by alloc \n")))
 	      
