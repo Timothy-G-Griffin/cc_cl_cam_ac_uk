@@ -33,7 +33,7 @@ let option_spec = [
      ("-i2",   Arg.Set use_i2,        "Interpreter 2" );
      ("-i3",   Arg.Set use_i3,        "Interpreter 3" );
      ("-i4",   Arg.Set use_i4,        "Jargon VM" );
-     ("-i4x86", Arg.Set use_i4x86,    "Jargon code to x86" );     
+     ("-i4x86", Arg.Set use_i4x86,    "Jargon code to x86: foo.slang generates x86 code in foo.s and executable in foo" );     
      ("-all",  Arg.Unit use_all,      "all interpreters");
      ("-stackmax",  Arg.Set_int stack_max, "set max stack size (default = 1000)");
      ("-heapmax",  Arg.Set_int heap_max, "set max heap size (default = 1000)");
