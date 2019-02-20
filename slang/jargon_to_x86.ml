@@ -114,8 +114,8 @@ let emit_x86 e =
 		   cmd "imulq %r10"        (Some "multiply %r10 by %rax, result in %rax"); 
 		   cmd "pushq %rax"        (Some "END mul, push result \n"))
 		    
-	 | DIV -> (cmd "popq %r10"         (Some "BEGIN div, , pop top-of-stack to %rax");
-		   cmd "popq %rax"         (Some "pop divisor into %r10"); 
+	 | DIV -> (cmd "popq %r10"         (Some "BEGIN div, , pop top-of-stack to %r10");
+		   cmd "popq %rax"         (Some "pop divisor into %rax"); 
 		   cmd "cqto"              (Some "prepare for div (read x86 docs!)");		   
 		   cmd "idivq %r10"        (Some "do the div, result in %rax"); 
 		   cmd "pushq %rax"        (Some "END div, push result \n"))
