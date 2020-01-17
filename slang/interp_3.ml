@@ -1,5 +1,5 @@
 (**************************************
-Compiler Construction 2016
+Compiler Construction 2020
 Computer Laboratory 
 University of Cambridge 
 Timothy G. Griffin (tgg22@cam.ac.uk) 
@@ -9,7 +9,7 @@ Timothy G. Griffin (tgg22@cam.ac.uk)
 
    Derived from Interpreter 2 by 
    --- Make instructions linear by introducing 
-       labels and goto.  
+       labels and jumps.  
    --- labels translated to numeric addresses. 
    --- include "code pointer" in state 
    --- compiler elimnates WHILE construct
