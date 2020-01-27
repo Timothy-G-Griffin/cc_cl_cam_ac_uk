@@ -142,7 +142,8 @@ type state_3 = expr * cnt_3
 
 (* apply_3 : cnt_3 * int -> int 
 
-   Claim 3.1 : For c : cnt_2 and v : int,  c(v) = apply_3(< c >, v) 
+   Claim 3 : For c : cnt_2 and v : int,  c(v) = apply_3(< c >, v) AND 
+             for all e, c, eval_aux_2 (e, c) =  eval_aux_3 (e, < c >). 
    Proof : by induction on the structure of < c >. 
 *) 
 let rec apply_3 = function 
@@ -155,10 +156,6 @@ let rec apply_3 = function
    | (INNER_MULT(v1, cnt), v2) -> apply_3(cnt, v1 * v2) 
 
 (* eval_aux_2 : state_3 -> int 
-
-   Claim 3.2 : for all e, c, eval_aux_2 (e, c) =  eval_aux_3 (e, < c >). 
-   Proof : by induction on the structure of e and using Claim 3.1. 
-
 *) 
 and eval_aux_3 (e, cnt) = 
    match e with 
@@ -180,7 +177,7 @@ let eval_3 e = eval_aux_3(e, ID)
 
    If c : cnt_3, then we represent it as < c > : cnt_4 as
  
-   < [] >               = ID 
+   < ID >  = [] 
    < OUTER_OP(e, cnt) > = O_OP(e) :: < cnt > 
    < INNER_OP(e, cnt) > = I_OP(e) :: < cnt > 
 
@@ -208,9 +205,10 @@ type state_4 = expr * cnt_4
 
 (* apply_4 : cnt_4 * int -> int 
 
-   Claim 4.1 : For c : cnt_3 and v : int,  apply_3(c, v)  = apply_4(< c >, v) 
-   Proof : by induction on the structure of c (or < c >). 
-
+   Claim 4 : For all e, c 
+             (1) for all v, apply_3(c, v)  = apply_4(< c >, v) and 
+             (2) eval_aux_3 (e, c) =  eval_aux_4 (e, < c >). 
+   Proof : by induction on the structure of e and c. 
 *) 
 let rec apply_4 = function 
    | ([],              v)  -> v 
@@ -222,9 +220,6 @@ let rec apply_4 = function
    | ((I_MULT v1) :: cnt, v2) -> apply_4(cnt, v1 * v2)
 
 (* eval_aux_4 : state_4 -> int 
-
-   Claim 4.2 : for all e, c, eval_aux_3 (e, c) =  eval_aux_4 (e, < c >). 
-   Proof : by induction on the structure of e and using Claim 4.1. 
 *) 
 and eval_aux_4 (e, cnt) = 
    match e with 
@@ -290,7 +285,7 @@ let step_5 = function
    Claim.5 : (ignoring first argument that counts steps) 
       driver_5 (APPLY(c, m)) = apply_4(c, m) 
       driver_5 (EVAL(c, e))  = eval_aux_4 (e, c)
-   Proof : induction on e. 
+   Proof : induction on e and c. 
 
 *) 
 let rec driver_5 n state = 
@@ -310,8 +305,8 @@ let eval_5 e = driver_5 1 (EVAL([], e))
 
   On close inspection, the continuations in state_5 actually interleave 
   two distinct stacks --- one for "directives" (expressions and instructions) 
-  and the other for integer values.  Call the first the directive stack 
-  and the second the value stack. 
+  and the other for integer values.  Call the first the "directive stack" 
+  and the second the "value stack". 
 *) 
 
 type directive = 
@@ -391,7 +386,7 @@ let rec driver_6 n state =
 
 let eval_6 e = driver_6 1 ([E e], []) 
 
-(*
+(*  side-by-side traces 
 
 eval_5 test1;;                       | eval_6 test1;
 ---------------------------------------------------------------------------
