@@ -10,11 +10,11 @@ type value =
   | INT of int 
   | BOOL of bool 
   | UNIT
-  | PAIR of value * value 
   | INL of value 
   | INR of value 
   | CLOSURE of location * env
   | REC_CLOSURE of location
+  | TUPLE of (value list)
 
 and instruction = 
   | PUSH of value 
@@ -24,13 +24,11 @@ and instruction =
   | ASSIGN 
   | SWAP
   | POP 
-  | BIND of Ast.var 
-  | FST
-  | SND
+  | BIND of Ast.var
   | DEREF 
   | APPLY
-  | RETURN 
-  | MK_PAIR 
+  | RETURN
+  | MK_TUPLE of int
   | MK_INL
   | MK_INR
   | MK_REF 
@@ -40,7 +38,8 @@ and instruction =
   | CASE of location
   | GOTO of location
   | LABEL of label 
-  | HALT 
+  | HALT
+  | INDEX of int
 
 and code = instruction list 
 

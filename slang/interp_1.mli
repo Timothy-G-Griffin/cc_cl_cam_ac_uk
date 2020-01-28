@@ -6,7 +6,7 @@ type value =
      | INT of int 
      | BOOL of bool 
      | UNIT
-     | PAIR of value * value 
+     | TUPLE of (value list)
      | INL of value 
      | INR of value 
      | REC_CLOSURE of closure
@@ -21,19 +21,17 @@ and continuation_action =
   | ASSIGN of value
   | ASSIGN_FST of Ast.expr * env
   | TAIL of Ast.expr list * env
+  | TUPLE_TAIL of Ast.expr list * value list * env
   | IF of Ast.expr * Ast.expr * env
   | WHILE of Ast.expr * Ast.expr * env
-  | MKPAIR of value 
-  | PAIR_FST of Ast.expr * env 
-  | FST 
-  | SND 
   | MKINL 
   | MKINR 
   | MKREF 
   | DEREF 
   | CASE of Ast.var * Ast.expr * Ast.var * Ast.expr * env 
   | APPLY of value 
-  | ARG of Ast.expr * env 
+  | ARG of Ast.expr * env
+  | INDEX of int
 
 and continuation = continuation_action  list
 

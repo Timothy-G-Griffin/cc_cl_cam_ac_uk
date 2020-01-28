@@ -8,11 +8,11 @@ type value =
      | INT of int 
      | BOOL of bool 
      | UNIT
-     | PAIR of value * value 
      | INL of value 
      | INR of value 
      | CLOSURE of closure    
      | REC_CLOSURE of code
+     | TUPLE of (value list)
 
 and closure = code * env 
 
@@ -25,12 +25,10 @@ and instruction =
   | ASSIGN 
   | SWAP
   | POP 
-  | BIND of var 
-  | FST
-  | SND
+  | BIND of var
   | DEREF 
   | APPLY
-  | MK_PAIR 
+  | MK_TUPLE of int
   | MK_INL
   | MK_INR
   | MK_REF 
@@ -39,6 +37,7 @@ and instruction =
   | TEST of code * code
   | CASE of code * code
   | WHILE of code * code
+  | INDEX of int
 
 and code = instruction list 
 

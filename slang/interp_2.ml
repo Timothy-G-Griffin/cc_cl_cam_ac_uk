@@ -29,11 +29,11 @@ type value =
      | INT of int 
      | BOOL of bool 
      | UNIT
-     | PAIR of value * value 
      | INL of value 
      | INR of value 
      | CLOSURE of closure    
      | REC_CLOSURE of code
+     | TUPLE of (value list)
 
 and closure = code * env 
 
@@ -45,12 +45,10 @@ and instruction =
   | ASSIGN 
   | SWAP
   | POP 
-  | BIND of var 
-  | FST
-  | SND
+  | BIND of var
   | DEREF 
   | APPLY
-  | MK_PAIR 
+  | MK_TUPLE of int
   | MK_INL
   | MK_INR
   | MK_REF 
@@ -59,6 +57,7 @@ and instruction =
   | TEST of code * code
   | CASE of code * code
   | WHILE of code * code
+  | INDEX of int
 
 and code = instruction list 
 
@@ -90,11 +89,16 @@ let rec string_of_value = function
      | BOOL b         -> string_of_bool b
      | INT n          -> string_of_int n 
      | UNIT           -> "UNIT"
-     | PAIR(v1, v2)    -> "(" ^ (string_of_value v1) ^ ", " ^ (string_of_value v2) ^ ")"
+     | TUPLE vl       -> "(" ^ (string_of_value_list vl)
      | INL v           -> "inl(" ^ (string_of_value v) ^ ")"
      | INR  v          -> "inr(" ^ (string_of_value v) ^ ")"
      | CLOSURE(cl) -> "CLOSURE(" ^ (string_of_closure cl) ^ ")"
      | REC_CLOSURE(c) -> "REC_CLOSURE(" ^ (string_of_code c) ^ ")"
+
+and string_of_value_list = function
+  | [] -> "" (* error if this happens *)
+  | [v] -> (string_of_value v) ^ ")"
+  | (v::rest) -> (string_of_value v) ^ ", " ^ string_of_value_list rest
 
 and string_of_closure (c, env) = 
    "(" ^ (string_of_code c) ^ ", " ^ (string_of_env env) ^ ")"
@@ -105,10 +109,8 @@ and string_of_binding (x, v) =    "(" ^ x ^ ", " ^ (string_of_value v) ^ ")"
 
 and string_of_instruction = function 
  | UNARY op     -> "UNARY " ^ (string_of_uop op) 
- | OPER op      -> "OPER " ^ (string_of_bop op) 
- | MK_PAIR      -> "MK_PAIR"
- | FST          -> "FST"
- | SND          -> "SND"
+ | OPER op      -> "OPER " ^ (string_of_bop op)
+ | MK_TUPLE n   -> "MK_TUPLE " ^ string_of_int n
  | MK_INL       -> "MK_INL"
  | MK_INR       -> "MK_INR"
  | MK_REF       -> "MK_REF"
@@ -125,6 +127,7 @@ and string_of_instruction = function
  | ASSIGN       -> "ASSIGN"
  | MK_CLOSURE c -> "MK_CLOSURE(" ^ (string_of_code c) ^ ")" 
  | MK_REC(f, c) -> "MK_REC(" ^ f ^ ", " ^ (string_of_code c) ^ ")"
+ | INDEX i -> "INDEX " ^ (string_of_int i)
 
 and string_of_code c = string_of_list ";\n " string_of_instruction c 
 
@@ -236,7 +239,18 @@ let do_oper = function
 (*
     val step : interp_state -> interp_state 
              = (code * env_value_stack * state) -> (code * env_value_stack * state) 
-*) 
+*)
+
+let rec take = function
+  | (0, ls) -> ([], ls)
+  | (n, V(v)::vs) -> let (front, rest) = take (n-1, vs) in (v::front, rest)
+  | _ -> complain "Stack underflow on take"
+
+let rec nth = function
+    | (1, t::tl) -> t
+    | (n, t::tl) -> if n > 0 then nth (n-1,tl) else complain "Runtime indexing error - should never happen"
+    | _ -> complain "Runtime indexing error - should never happen"
+
 let step = function 
 
 (* (code stack,         value/env stack, state) -> (code stack,  value/env stack, state) *) 
@@ -247,9 +261,11 @@ let step = function
  | ((LOOKUP x) :: ds,                      evs, s) -> (ds, V(search(evs, x)) :: evs, s)
  | ((UNARY op) :: ds,             (V v) :: evs, s) -> (ds, V(do_unary(op, v)) :: evs, s) 
  | ((OPER op) :: ds,   (V v2) :: (V v1) :: evs, s) -> (ds, V(do_oper(op, v1, v2)) :: evs, s)
- | (MK_PAIR :: ds,     (V v2) :: (V v1) :: evs, s) -> (ds, V(PAIR(v1, v2)) :: evs, s)
- | (FST :: ds,           V(PAIR (v, _)) :: evs, s) -> (ds, (V v) :: evs, s)
- | (SND :: ds,           V(PAIR (_, v)) :: evs, s) -> (ds, (V v) :: evs, s)
+
+ | ((MK_TUPLE n) :: ds,                    evs, s) -> let (vs, rest) = take (n, evs) in
+                                                           (ds, V(TUPLE(List.rev vs))::rest, s)
+ | (INDEX (i) :: ds,       (V (TUPLE vl))::evs, s) -> (ds, (V (nth (i, vl))) :: evs, s)
+
  | (MK_INL :: ds,                 (V v) :: evs, s) -> (ds, V(INL v) :: evs, s)
  | (MK_INR :: ds,                 (V v) :: evs, s) -> (ds, V(INR v) :: evs, s)
  | (CASE (c1,  _) :: ds,         V(INL v)::evs, s) -> (c1 @ ds, (V v) :: evs, s) 
@@ -291,10 +307,10 @@ let rec compile = function
  | Var x          -> [LOOKUP x] 
  | UnaryOp(op, e) -> (compile e) @ [UNARY op]
  | Op(e1, op, e2) -> (compile e1) @ (compile e2) @ [OPER op] 
- | Pair(e1, e2)   -> (compile e1) @ (compile e2) @ [MK_PAIR] 
- | Fst e          -> (compile e) @ [FST] 
- | Snd e          -> (compile e) @ [SND] 
- | Inl e          -> (compile e) @ [MK_INL] 
+
+ | Tuple(el)      -> List.fold_right (fun e -> fun c -> (compile e) @ c) el [MK_TUPLE(List.length el)]
+ | Index(i, e)    -> (compile e) @ [INDEX i]
+ | Inl e          -> (compile e) @ [MK_INL]
  | Inr e          -> (compile e) @ [MK_INR] 
  | Case(e, (x1, e1), (x2, e2)) -> 
        (compile e)

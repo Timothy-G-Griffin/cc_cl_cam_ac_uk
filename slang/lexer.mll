@@ -62,6 +62,7 @@ rule token = parse
   | "int" { INTTYPE }
   | "unit" { UNITTYPE }
   | int_reg_exp { INT (int_of_string (Lexing.lexeme lexbuf)) }
+  | "#" { INDEX }
   | ident_reg_exp { IDENT (Lexing.lexeme lexbuf) }
   | "(*" { comment lexbuf; token lexbuf }
   | newline { next_line lexbuf; token lexbuf } 
@@ -72,7 +73,7 @@ rule token = parse
 and comment = parse
   | "*)" { () }
   | newline { next_line lexbuf; comment lexbuf }
+  | _ { comment lexbuf }
   | "(*" {comment lexbuf; comment lexbuf }
-  | _ { comment lexbuf } 
       
 

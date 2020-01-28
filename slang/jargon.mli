@@ -24,11 +24,11 @@ type stack_item =
   | STACK_RA of code_index    (* return address               *) 
   | STACK_FP of stack_index   (* Frame pointer                *) 
 
-type heap_type = 
-    | HT_PAIR 
+type heap_type =
     | HT_INL 
     | HT_INR 
-    | HT_CLOSURE 
+    | HT_CLOSURE
+    | HT_TUPLE
 
 type heap_item = 
   | HEAP_INT of int 
@@ -50,13 +50,11 @@ type instruction =
   | ASSIGN 
   | SWAP
   | POP 
-(*  | BIND of var            not needed *) 
-  | FST
-  | SND
+(*  | BIND of var            not needed *)
   | DEREF 
   | APPLY
-  | RETURN 
-  | MK_PAIR 
+  | RETURN
+  | MK_TUPLE of int
   | MK_INL
   | MK_INR
   | MK_REF 
@@ -65,7 +63,8 @@ type instruction =
   | CASE of location
   | GOTO of location
   | LABEL of label 
-  | HALT 
+  | HALT
+  | INDEX of int
 
 
 type vm_state = 

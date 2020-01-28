@@ -39,26 +39,33 @@ let rec find loc x = function
 
 
 (* may want to make this more interesting someday ... *)
-(* TODO: Add subtyping *)
-let rec match_types (t1, t2) = (t1 = t2) 
+(* TODO: Add subtyping - requires records i.e. how { vm } done in OCaml *)
+let rec match_types (t1, t2) = (t1 = t2)
 
-let make_pair loc (e1, t1) (e2, t2)  = (Pair(loc, e1, e2), TEproduct(t1, t2))
+(* let make_pair loc (e1, t1) (e2, t2)  = (Pair(loc, e1, e2), TEproduct(t1, t2)) *)
 let make_inl loc t2 (e, t1)          = (Inl(loc, t2, e), TEunion(t1, t2))
 let make_inr loc t1 (e, t2)          = (Inr(loc, t1, e), TEunion(t1, t2))
 let make_lambda loc x t1 (e, t2)     = (Lambda(loc, (x, t1, e)), TEarrow(t1, t2))
 let make_ref loc (e, t)              = (Ref(loc, e), TEref t)
 let make_letfun loc f x t1 (body, t2) (e, t)    = (LetFun(loc, f, (x, t1, body), t2, e), t)
 let make_letrecfun loc f x t1 (body, t2) (e, t) = (LetRecFun(loc, f, (x, t1, body), t2, e), t)
+let make_lettuplefun loc f xl tl (e1, t2) (e2, t) = (LetTupleFun(loc, f, xl, tl, e1, t2, e2), t)
+let make_letrectuplefun loc f xl tl (e1, t2) (e2, t) = (LetRecTupleFun(loc, f, xl, tl, e1, t2, e2), t)
 
 let make_let loc x t (e1, t1) (e2, t2)  = 
     if match_types (t, t1) 
     then (Let(loc, x, t, e1, e2), t2)
     else report_types_not_equal loc t t1
 
+(*
 let make_pairLet loc x1 t1 x2 t2 (e1, te1) (e2, te2) =
     if match_types (TEproduct(t1, t2), te1)
     then (PairLet(loc, x1, t1, x2, t2, e1, e2), te2)
     else report_types_not_equal loc (TEproduct (t1,t2)) te1
+*)
+let make_tuple_let loc xs ts (e1, t1) (e2, t2) =
+   if match_types (TEprod ts, t1) then (LetTuple(loc, xs, ts, e1, e2), t2)
+   else report_types_not_equal loc (TEprod ts) t1
 
 let make_if loc (e1, t1) (e2, t2) (e3, t3) = 
      match t1 with 
@@ -75,7 +82,7 @@ let make_app loc (e1, t1) (e2, t2) =
          then (App(loc, e1, e2), t4)
          else report_expecting e2 (string_of_type t3) t2
     | _ -> report_expecting e1 "function type" t1
-
+(*
 let make_fst loc = function 
   | (e, TEproduct(t, _)) -> (Fst(loc, e), t) 
   | (e, t) -> report_expecting e "product" t
@@ -83,7 +90,7 @@ let make_fst loc = function
 let make_snd loc = function 
   | (e, TEproduct(_, t)) -> (Snd(loc, e), t) 
   | (e, t) -> report_expecting e "product" t
-
+*)
 
 let make_deref loc (e, t) = 
     match t with 
@@ -152,6 +159,24 @@ let make_case loc left right x1 x2 (e1, t1) (e2, t2) (e3, t3) =
       else report_types_not_equal loc left left' 
     | t -> report_expecting e1 "disjoint union" t
 
+let rec nth = function
+    | (1, t::tl) -> t
+    | (n, t::tl) -> if n > 0 then nth (n-1,tl) else complain "Index must be greater than 0"
+    | _ -> complain "Index greater than size of tuple"
+
+let make_index loc i (e, t) =
+    match t with
+    | TEprod tl -> (Index(loc, i, e), nth (i, tl))
+    | _ -> report_expecting e "tuple type" t
+
+let rec mem x = function
+  | [] -> true
+  | (y::rest) -> if x = y then true else mem x rest
+
+(* TODO: Allow _ variable *)
+let rec check_tuple_bind bound = function
+  | [] -> true
+  | (x::rest) -> if mem x bound then false else check_tuple_bind (x::bound) rest
 
 let rec  infer env e = 
     match e with 
@@ -168,17 +193,19 @@ let rec  infer env e =
     | UnaryOp(loc, uop, e) -> make_uop loc uop (infer env e) 
     | Op(loc, e1, bop, e2) -> make_bop loc bop (infer env e1) (infer env e2) 
     | If(loc, e1, e2, e3)  -> make_if loc (infer env e1) (infer env e2) (infer env e3)          
-    | Pair(loc, e1, e2)    -> make_pair loc (infer env e1) (infer env e2) 
+  (*  | Pair(loc, e1, e2)    -> make_pair loc (infer env e1) (infer env e2)
     | Fst(loc, e)          -> make_fst loc (infer env e)
-    | Snd (loc, e)         -> make_snd loc (infer env e)
+    | Snd (loc, e)         -> make_snd loc (infer env e) *)
     | Inl (loc, t, e)      -> make_inl loc t (infer env e)
-    | Inr (loc, t, e)      -> make_inr loc t (infer env e) 
+    | Inr (loc, t, e)      -> make_inr loc t (infer env e)
+
+    | Tuple(loc, el)       -> infer_tuple loc env el
+
     | Case(loc, e, (x1, t1, e1), (x2, t2, e2)) ->  
             make_case loc t1 t2 x1 x2 (infer env e) (infer ((x1, t1) :: env) e1) (infer ((x2, t2) :: env) e2)
     | Lambda (loc, (x, t, e)) -> make_lambda loc x t (infer ((x, t) :: env) e)
     | App(loc, e1, e2)        -> make_app loc (infer env e1) (infer env e2)
     | Let(loc, x, t, e1, e2)  -> make_let loc x t (infer env e1) (infer ((x, t) :: env) e2)
-    | PairLet(loc, x1, t1, x2, t2, e1, e2) -> make_pairLet loc x1 t1 x2 t2 (infer env e1) (infer ((x1,t1)::(x2,t2)::env) e2)
     | LetFun(loc, f, (x, t1, body), t2, e) -> 
       let env1 = (f, TEarrow(t1, t2)) :: env in 
       let p = infer env1 e  in 
@@ -187,14 +214,32 @@ let rec  infer env e =
           with _ -> let env3 = (f, TEarrow(t1, t2)) :: env2 in 
                         make_letrecfun loc f x t1 (infer env3 body) p 
          )
-    | LetRecFun(_, _, _, _, _)  -> internal_error "LetRecFun found in parsed AST" 
+    | Index(loc, i, e)          -> make_index loc i (infer env e)
+    | LetTuple(loc, xl, tl, e1, e2) -> make_tuple_let loc xl tl (infer env e1) (infer ((List.combine xl tl) @ env) e2)
+    | LetTupleFun (loc, f, xl, tl, e1, t, e2) -> let env1 = (f, TEarrow(TEprod(tl), t)) :: env in
+            let p = infer env1 e2 in
+            let env2 = (List.combine xl tl) @ env in
+             (try make_lettuplefun loc f xl tl (infer env2 e1) p
+                       with _ -> let env3 = (f, TEarrow(TEprod tl, t)) :: env2 in
+                                     make_letrectuplefun loc f xl tl (infer env3 e1) p
+                      )
+    | LetRecTupleFun (_, _, _, _, _, _, _) -> internal_error "LetRecTupleFun found in parsed AST"
+    | LetRecFun(_, _, _, _, _)  -> internal_error "LetRecFun found in parsed AST"
+
 
 and infer_seq loc env el = 
-    let rec aux carry = function 
+    let rec aux carry = function
       | []        -> internal_error "empty sequence found in parsed AST" 
       | [e]       -> let (e', t) = infer env e in (Seq(loc, List.rev (e' :: carry )), t)
       | e :: rest -> let (e', _) = infer env e in aux (e' :: carry) rest 
-    in aux [] el 
+    in aux [] el
+
+and infer_tuple loc env el =
+    let rec aux carry carryType = function
+      | []      -> internal_error "Empty tuple in parsed AST"
+      | [e]     -> let (e', t) = infer env e in (Tuple(loc, List.rev (e' :: carry)), TEprod (List.rev (t::carryType)))
+      | e::rest -> let (e', t) = infer env e in aux (e' :: carry) (t::carryType) rest
+    in aux [] [] el
        
 let env_init = [] 
 

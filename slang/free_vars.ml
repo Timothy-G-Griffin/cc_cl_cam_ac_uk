@@ -14,12 +14,13 @@ let free_vars(bvars, exp) =
     | UnaryOp(_, e)      -> aux bound free e
     | Op(e1, _, e2)      -> aux bound (aux bound free e1) e2
     | If(e1, e2, e3)     -> aux bound (aux bound (aux bound free e1) e2) e3
-    | Pair(e1, e2)       -> aux bound (aux bound free e1) e2
     | App(e1, e2)        -> aux bound (aux bound free e1) e2
-    | Fst e              -> aux bound free e
-    | Snd e              -> aux bound free e
     | Inl e              -> aux bound free e
     | Inr e              -> aux bound free e
+
+    | Tuple []           -> free
+    | Tuple (e::rest)    -> aux bound (aux bound free e) (Tuple rest)
+
     | Lambda l           -> lambda bound free l
     | Case(e, l1, l2)    -> lambda bound (lambda bound (aux bound free e) l1) l2
     | LetFun(f, l, e)    -> aux (f :: bound) (lambda bound free l) e
@@ -29,7 +30,8 @@ let free_vars(bvars, exp) =
     | Assign(e1, e2)     -> aux bound (aux bound free e1) e2
     | While(e1, e2)      -> aux bound (aux bound free e1) e2
     | Seq []             -> free 
-    | Seq (e :: rest)    -> aux bound (aux bound free e) (Seq rest) 
+    | Seq (e :: rest)    -> aux bound (aux bound free e) (Seq rest)
+    | Index(i, e)        -> aux bound free e
     | _                  -> free 
     and lambda bound free (x, e) = aux (x :: bound) free e 
    in aux bvars [] exp 

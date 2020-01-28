@@ -28,6 +28,13 @@ let translate_bop = function
   | Past.EQB -> Ast.EQB
   | Past.EQ  -> Errors.complain "internal error, translate found a EQ that should have been resolved to EQI or EQB"
 
+let rec tagged i = function
+  | [] -> []
+  | (x::rest) -> (i, x)::(tagged (i+1) rest)
+let rec last = function
+  | [x] -> x
+  | (x::rest) -> last rest
+  | [] -> Errors.complain "Error - cannot have empty tuple"
 
 let rec translate_expr = function 
     | Past.Unit _            -> Ast.Unit
@@ -38,11 +45,13 @@ let rec translate_expr = function
     | Past.UnaryOp(_, op, e) -> Ast.UnaryOp(translate_uop op, translate_expr e)
     | Past.Op(_, e1, op, e2) -> Ast.Op(translate_expr e1, translate_bop op, translate_expr e2)
     | Past.If(_, e1, e2, e3) -> Ast.If(translate_expr e1, translate_expr e2, translate_expr e3)
-    | Past.Pair(_, e1, e2)   -> Ast.Pair(translate_expr e1, translate_expr e2)
-    | Past.Fst(_, e)         -> Ast.Fst(translate_expr e)
-    | Past.Snd(_, e)         -> Ast.Snd(translate_expr e)
+  (*  | Past.Pair(_, e1, e2)   -> Ast.Pair(translate_expr e1, translate_expr e2) *)
+
     | Past.Inl(_, _, e)       -> Ast.Inl(translate_expr e)
     | Past.Inr(_, _, e)       -> Ast.Inr(translate_expr e)
+
+    | Past.Tuple(_, el)       -> Ast.Tuple(List.map translate_expr el)
+
     | Past.Case(_, e, l1, l2) -> 
          Ast.Case(translate_expr e, translate_lambda l1, translate_lambda l2) 
     | Past.Lambda(_, l)      -> Ast.Lambda (translate_lambda l)
@@ -51,11 +60,6 @@ let rec translate_expr = function
        Replace "let" with abstraction and application. For example, translate 
         "let x = e1 in e2 end" to "(fun x -> e2) e1" 
     *)
-    (* TODO: Translate directly rather than creating new Past.Let - or do higher up*)
-    (* TODO: Would avoid having to reuse 'loc'*)
-    | Past.PairLet(loc, x1, t1, x2, t2, e1, e2) -> translate_expr (Past.Let(loc, x2, Past.TEproduct(t1,t2), e1,
-            (Past.Let(loc, x1, t1, Past.Fst(loc, Past.Var(loc, x2)),
-                Past.Let(loc, x2, t2, Past.Snd(loc, Past.Var(loc, x2)), e2)))))
     | Past.Let(_, x, _, e1, e2) -> 
          Ast.App(Ast.Lambda(x, translate_expr e2), translate_expr e1)
     | Past.LetFun(_, f, l, _, e)     -> 
@@ -68,6 +72,34 @@ let rec translate_expr = function
     | Past.Ref(_, e) -> Ast.Ref(translate_expr e)
     | Past.Deref(_, e) -> Ast.Deref(translate_expr e)
     | Past.Assign(_, e1, e2) -> Ast.Assign(translate_expr e1, translate_expr e2)
+    | Past.Index(_, i, e) -> Ast.Index(i, translate_expr e)
+    (* let (a,b) = e1 in e2
+        Becomes:
+       let b = e1 in
+           let a = #1 b in
+               let b = #2 b in
+                   e2
+    *)
+    | Past.LetTuple(_, xl, _, e1, e2) -> let last_var = last xl in
+        let nested_lets = List.fold_right (fun (i,v) -> fun e ->
+        Ast.App(Ast.Lambda(v, e), Ast.Index(i, Ast.Var last_var))) (tagged 1 xl) (translate_expr e2) in
+        Ast.App(Ast.Lambda(last_var, nested_lets), translate_expr e1)
+    (* let f (a,b) = e1 in e2
+            Becomes:
+           let f b =
+               let a = #1 b in
+                   let b = #2 b in
+                       e1
+           in e2
+        *)
+    | Past.LetTupleFun(_, f, xl, _, e1, _, e2) -> let last_var = last xl in
+          let nested_lets = List.fold_right (fun (i,v) -> fun e ->
+          Ast.App(Ast.Lambda(v, e), Ast.Index(i, Ast.Var last_var))) (tagged 1 xl) (translate_expr e1) in
+          Ast.LetFun(f, (last_var, nested_lets), translate_expr e2)
+    | Past.LetRecTupleFun(_, f, xl, _, e1, _, e2) -> let last_var = last xl in
+          let nested_lets = List.fold_right (fun (i,v) -> fun e ->
+          Ast.App(Ast.Lambda(v, e), Ast.Index(i, Ast.Var last_var))) (tagged 1 xl) (translate_expr e1) in
+          Ast.LetRecFun(f, (last_var, nested_lets), translate_expr e2)
 
 and translate_lambda (x, _, body) = (x, translate_expr body) 
 
