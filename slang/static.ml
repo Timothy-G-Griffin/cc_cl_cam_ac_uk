@@ -38,7 +38,8 @@ let rec find loc x = function
   | (y, v) :: rest -> if x = y then v else find loc x rest
 
 
-(* may want to make this more interesting someday ... *) 
+(* may want to make this more interesting someday ... *)
+(* TODO: Add subtyping *)
 let rec match_types (t1, t2) = (t1 = t2) 
 
 let make_pair loc (e1, t1) (e2, t2)  = (Pair(loc, e1, e2), TEproduct(t1, t2))
@@ -52,7 +53,12 @@ let make_letrecfun loc f x t1 (body, t2) (e, t) = (LetRecFun(loc, f, (x, t1, bod
 let make_let loc x t (e1, t1) (e2, t2)  = 
     if match_types (t, t1) 
     then (Let(loc, x, t, e1, e2), t2)
-    else report_types_not_equal loc t t1 
+    else report_types_not_equal loc t t1
+
+let make_pairLet loc x1 t1 x2 t2 (e1, te1) (e2, te2) =
+    if match_types (TEproduct(t1, t2), te1)
+    then (PairLet(loc, x1, t1, x2, t2, e1, e2), te2)
+    else report_types_not_equal loc (TEproduct (t1,t2)) te1
 
 let make_if loc (e1, t1) (e2, t2) (e3, t3) = 
      match t1 with 
@@ -171,7 +177,8 @@ let rec  infer env e =
             make_case loc t1 t2 x1 x2 (infer env e) (infer ((x1, t1) :: env) e1) (infer ((x2, t2) :: env) e2)
     | Lambda (loc, (x, t, e)) -> make_lambda loc x t (infer ((x, t) :: env) e)
     | App(loc, e1, e2)        -> make_app loc (infer env e1) (infer env e2)
-    | Let(loc, x, t, e1, e2)  -> make_let loc x t (infer env e1) (infer ((x, t) :: env) e2) 
+    | Let(loc, x, t, e1, e2)  -> make_let loc x t (infer env e1) (infer ((x, t) :: env) e2)
+    | PairLet(loc, x1, t1, x2, t2, e1, e2) -> make_pairLet loc x1 t1 x2 t2 (infer env e1) (infer ((x1,t1)::(x2,t2)::env) e2)
     | LetFun(loc, f, (x, t1, body), t2, e) -> 
       let env1 = (f, TEarrow(t1, t2)) :: env in 
       let p = infer env1 e  in 

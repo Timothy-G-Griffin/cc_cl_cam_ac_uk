@@ -50,7 +50,13 @@ let rec translate_expr = function
     (*
        Replace "let" with abstraction and application. For example, translate 
         "let x = e1 in e2 end" to "(fun x -> e2) e1" 
-    *) 
+    *)
+    (* TODO: Fix creating unique names - use x2, will be shadowed after the let*)
+    (* TODO: Translate directly rather than creating new Past.Let - or do higher up*)
+    (* TODO: Would avoid having to reuse 'loc'*)
+    | Past.PairLet(loc, x1, t1, x2, t2, e1, e2) -> translate_expr (Past.Let(loc, "__HopefullyUnique" ^ x1 ^ x2, Past.TEproduct(t1,t2), e1,
+            (Past.Let(loc, x1, t1, Past.Fst(loc, Past.Var(loc, "__HopefullyUnique" ^ x1 ^ x2)),
+                Past.Let(loc, x2, t2, Past.Snd(loc, Past.Var(loc, "__HopefullyUnique" ^ x1 ^ x2)), e2)))))
     | Past.Let(_, x, _, e1, e2) -> 
          Ast.App(Ast.Lambda(x, translate_expr e2), translate_expr e1)
     | Past.LetFun(_, f, l, _, e)     -> 

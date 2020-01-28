@@ -47,6 +47,7 @@ type expr =
        | Lambda of loc * lambda 
        | App of loc * expr * expr
        | Let of loc * var * type_expr * expr * expr
+       | PairLet of loc * var * type_expr * var * type_expr * expr * expr
        | LetFun of loc * var * lambda * type_expr * expr
        | LetRecFun of loc * var * lambda * type_expr * expr
 
@@ -74,7 +75,8 @@ let  loc_of_expr = function
     | While(loc, _, _)              -> loc 
     | Lambda(loc, _)                -> loc 
     | App(loc, _, _)                -> loc 
-    | Let(loc, _, _, _, _)          -> loc 
+    | Let(loc, _, _, _, _)          -> loc
+    | PairLet(loc, _, _, _, _, _, _)-> loc
     | LetFun(loc, _, _, _, _)       -> loc 
     | LetRecFun(loc, _, _, _, _)    -> loc 
 
@@ -157,6 +159,8 @@ let rec pp_expr ppf = function
     | App(_, e1, e2)      -> fprintf ppf "%a %a" pp_expr e1 pp_expr e2
     | Let(_, x, t, e1, e2) -> 
          fprintf ppf "@[<2>let %a : %a = %a in %a end@]" fstring x pp_type t pp_expr e1 pp_expr e2
+    | PairLet(_, x1, t1, x2, t2, e1, e2) ->
+         fprintf ppf "@[<2>let (%a : %a, %a : %a) = %a in %a end@]" fstring x1 pp_type t1 fstring x2 pp_type t2 pp_expr e1 pp_expr e2
     | LetFun(_, f, (x, t1, e1), t2, e2)     -> 
          fprintf ppf "@[let %a(%a : %a) : %a =@ %a @ in %a @ end@]" 
                      fstring f fstring x  pp_type t1 pp_type t2 pp_expr e1 pp_expr e2
@@ -229,6 +233,7 @@ let rec string_of_expr = function
     | Lambda(_, (x, t, e)) -> mk_con "Lambda" [x; string_of_type t; string_of_expr e]
     | App(_, e1, e2)      -> mk_con "App" [string_of_expr e1; string_of_expr e2]
     | Let(_, x, t, e1, e2) -> mk_con "Let" [x; string_of_type t; string_of_expr e1; string_of_expr e2]
+    | PairLet(_,x1,t1,x2,t2,e1,e2) -> mk_con "Let" [x1; string_of_type t1; x2; string_of_type t2; string_of_expr e1; string_of_expr e2]
     | LetFun(_, f, (x, t1, e1), t2, e2)      -> 
           mk_con "LetFun" [
              f; 
