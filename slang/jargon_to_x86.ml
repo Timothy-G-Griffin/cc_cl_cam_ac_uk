@@ -240,8 +240,8 @@ let emit_x86 e =
     in let apply () =
 	    (cmd "movq (%rsp),%rax"   "BEGIN apply, copy closure pointer to %rax";
              cmd "movq (%rax),%rax"   "get the the function address from heap";	  
-	     cmd "pushq %rbp"         "save the frame pointer";
-	     cmd "movq %rsp,%rbp"     "set new frame pointer";	     	     
+	     cmd "pushq %rbp"         "save the base pointer";
+	     cmd "movq %rsp,%rbp"     "set new base pointer";	     	     
       	     cmd "call *%rax"         "call pushes return address, jumps to function";
 	     cmd "popq %rbp"          "retore base pointer";	     
 	     cmd "addq $8, %rsp"      "pop closure";
