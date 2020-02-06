@@ -687,12 +687,12 @@ let rec comp vmap = function
  | Lambda(x, e)           -> comp_lambda vmap (None, x, e)
  | LetRecFun(f, (x, e1), e2) -> 
                       let (defs1, c1) = comp vmap (Lambda(f, e2)) in  
-                      let (defs2, c2) = comp_lambda vmap (Some f, x, e1) in 
+                      let (defs2, c2) = comp_lambda vmap (Some f, x, e1) in
                           (defs1 @ defs2, c2 @ c1 @ [APPLY]) 
 
 and comp_lambda vmap (f_opt, x, e) = 
     let bound_vars = match f_opt with | None -> [x]          | Some f -> [x; f] in 
-    let f =          match f_opt with | None -> new_label () | Some f -> f in 
+    let f = new_label () in
     let f_bind =     match f_opt with | None -> []           | Some f -> [(f, STACK_LOCATION (-1))]  in 
     let x_bind = (x, STACK_LOCATION (-2)) in 
     let fvars = Free_vars.free_vars (bound_vars, e)   in 
