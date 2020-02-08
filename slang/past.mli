@@ -49,9 +49,9 @@ type expr =
        | LetFun of loc * var * lambda * type_expr * expr
        | LetRecFun of loc * var * lambda * type_expr * expr
        | Index of loc * int * expr
-       | LetTuple of loc * (var list) * (type_expr list) * expr * expr
-       | LetTupleFun of loc * var * (var list) * (type_expr list) * expr * type_expr * expr
-       | LetRecTupleFun of loc * var * (var list) * (type_expr list) * expr * type_expr * expr
+       | LetTuple of loc * ((var * type_expr) list) * expr * expr
+       | LetTupleFun of loc * var * ((var * type_expr) list) * expr * type_expr * expr
+       | LetRecTupleFun of loc * var * ((var * type_expr) list) * expr * type_expr * expr
 
 and lambda = var * type_expr * expr 
 val loc_of_expr : expr -> loc 

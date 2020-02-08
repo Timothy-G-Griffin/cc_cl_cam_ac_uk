@@ -113,7 +113,7 @@ let rec nth = function
 
 (*
     interpret : (expr * env * store) -> (value * store) 
-              : (expr * (var -> value) * address -> value) -> value TODO: Should be (value * store) ?
+              : (expr * (var -> value) * address -> value) -> value * store
 *) 
 let rec interpret (e, env, store) = 
     match e with 

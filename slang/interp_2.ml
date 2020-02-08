@@ -96,7 +96,7 @@ let rec string_of_value = function
      | REC_CLOSURE(c) -> "REC_CLOSURE(" ^ (string_of_code c) ^ ")"
 
 and string_of_value_list = function
-  | [] -> "" (* error if this happens *)
+  | [] -> complain "Empty tuple found"
   | [v] -> (string_of_value v) ^ ")"
   | (v::rest) -> (string_of_value v) ^ ", " ^ string_of_value_list rest
 

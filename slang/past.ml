@@ -13,9 +13,7 @@ type type_expr =
    | TEunit 
    | TEref of type_expr 
    | TEarrow of type_expr * type_expr
-  (* | TEproduct of type_expr * type_expr *)
    | TEunion of type_expr * type_expr
-
    | TEprod of (type_expr list)
 
 type formals = (var * type_expr) list
@@ -33,40 +31,24 @@ type expr =
        | UnaryOp of loc * unary_oper * expr
        | Op of loc * expr * oper * expr
        | If of loc * expr * expr * expr
-   (*    | Pair of loc * expr * expr  *)
-
        | Inl of loc * type_expr * expr 
        | Inr of loc * type_expr * expr
-
        | Tuple of loc * (expr list)
-
        | Case of loc * expr * lambda * lambda 
        | While of loc * expr * expr
        | Seq of loc * (expr list)
        | Ref of loc * expr 
        | Deref of loc * expr 
        | Assign of loc * expr * expr
-
        | Lambda of loc * lambda 
        | App of loc * expr * expr
        | Let of loc * var * type_expr * expr * expr
-<<<<<<< HEAD
-<<<<<<< HEAD
-   (*    | PairLet of loc * var * type_expr * var * type_expr * expr * expr *)
-=======
-       | PairLet of loc * var * type_expr * var * type_expr * expr * expr
->>>>>>> ddf4993... Basic pair pattern matching added
-=======
-   (*    | PairLet of loc * var * type_expr * var * type_expr * expr * expr *)
->>>>>>> 88428d0... All tuple pattern matching done in parser
        | LetFun of loc * var * lambda * type_expr * expr
        | LetRecFun of loc * var * lambda * type_expr * expr
-
        | Index of loc * int * expr
-       (* Tuple forms separate as they introduce extra indirection in setting up bindings *)
-       | LetTuple of loc * (var list) * (type_expr list) * expr * expr
-       | LetTupleFun of loc * var * (var list) * (type_expr list) * expr * type_expr * expr
-       | LetRecTupleFun of loc * var * (var list) * (type_expr list) * expr * type_expr * expr
+       | LetTuple of loc * ((var * type_expr) list) * expr * expr
+       | LetTupleFun of loc * var * ((var * type_expr) list) * expr * type_expr * expr
+       | LetRecTupleFun of loc * var * ((var * type_expr) list) * expr * type_expr * expr
 
 and lambda = var * type_expr * expr 
 
@@ -78,14 +60,10 @@ let  loc_of_expr = function
     | Boolean (loc, _)              -> loc 
     | UnaryOp(loc, _, _)            -> loc 
     | Op(loc, _, _, _)              -> loc 
-    | If(loc, _, _, _)              -> loc 
-(*    | Pair(loc, _, _)               -> loc *)
-
+    | If(loc, _, _, _)              -> loc
     | Inr(loc, _, _)                -> loc 
     | Inl(loc, _, _)                -> loc
-
     | Tuple(loc, _)                 -> loc
-
     | Case(loc, _, _, _)            -> loc 
     | Seq(loc, _)                   -> loc 
     | Ref(loc, _)                   -> loc 
@@ -95,23 +73,12 @@ let  loc_of_expr = function
     | Lambda(loc, _)                -> loc 
     | App(loc, _, _)                -> loc 
     | Let(loc, _, _, _, _)          -> loc
-<<<<<<< HEAD
-<<<<<<< HEAD
- (*  | PairLet(loc, _, _, _, _, _, _)-> loc *)
-=======
-    | PairLet(loc, _, _, _, _, _, _)-> loc
->>>>>>> ddf4993... Basic pair pattern matching added
-=======
- (*  | PairLet(loc, _, _, _, _, _, _)-> loc *)
->>>>>>> 88428d0... All tuple pattern matching done in parser
     | LetFun(loc, _, _, _, _)       -> loc 
     | LetRecFun(loc, _, _, _, _)    -> loc
-
     | Index(loc, _, _)              -> loc
-    | LetTuple (loc,_,_,_,_)        -> loc
-    | LetTupleFun (loc, _, _, _, _, _, _) -> loc
-    | LetRecTupleFun (loc, _, _, _, _, _, _) -> loc
-
+    | LetTuple (loc,_,_,_)        -> loc
+    | LetTupleFun (loc, _, _, _, _, _) -> loc
+    | LetRecTupleFun (loc, _, _, _, _, _) -> loc
 
 let string_of_loc loc = 
     "line " ^ (string_of_int (loc.Lexing.pos_lnum)) ^ ", " ^ 
@@ -130,8 +97,7 @@ let rec pp_type = function
   | TEbool -> "bool" 
   | TEunit -> "unit" 
   | TEref t           -> "(" ^ (pp_type t) ^ " ref)"
-  | TEarrow(t1, t2)   -> "(" ^ (pp_type t1) ^ " -> " ^ (pp_type t2) ^ ")" 
- (* | TEproduct(t1, t2) -> "(" ^ (pp_type t1) ^ " * " ^ (pp_type t2) ^ ")"  *)
+  | TEarrow(t1, t2)   -> "(" ^ (pp_type t1) ^ " -> " ^ (pp_type t2) ^ ")"
   | TEunion(t1, t2)   -> "(" ^ (pp_type t1) ^ " + " ^ (pp_type t2) ^ ")"
   | TEprod tl -> "(" ^ List.fold_right (fun v -> fun s -> (pp_type v) ^ s) tl ")"
 
@@ -139,7 +105,6 @@ let rec pp_type = function
 let pp_uop = function 
   | NEG -> "-" 
   | NOT -> "~" 
-
 
 let pp_bop = function 
   | ADD -> "+" 
@@ -173,17 +138,12 @@ let rec pp_expr ppf = function
     | Op(_, e1, op, e2)   -> fprintf ppf "(%a %a %a)" pp_expr e1  pp_binary op pp_expr e2 
     | If(_, e1, e2, e3)   -> fprintf ppf "@[if %a then %a else %a @]" 
                                       pp_expr e1 pp_expr e2 pp_expr e3
- (*   | Pair(_, e1, e2)     -> fprintf ppf "(%a, %a)" pp_expr e1 pp_expr e2 *)
-
     | Inl(_, t, e)        -> fprintf ppf "(inl %a %a)" pp_type t pp_expr e
     | Inr(_, t, e)        -> fprintf ppf "(inr %a %a)" pp_type t pp_expr e
-
     | Tuple (loc, l)       -> fprintf ppf "(%a)" pp_expr (Seq(loc, l))
-
     | Case(_, e, (x1, t1, e1), (x2, t2, e2)) -> 
         fprintf ppf "@[<2>case %a of@ | inl(%a : %a) -> %a @ | inr(%a : %a) -> %a end@]" 
-                     pp_expr e fstring x1 pp_type t1 pp_expr e1 fstring x2 pp_type t2 pp_expr e2 
-
+                     pp_expr e fstring x1 pp_type t1 pp_expr e1 fstring x2 pp_type t2 pp_expr e2
     | Seq (_, [])         -> () 
     | Seq (_, [e])        -> pp_expr ppf e 
     | Seq (l, e :: rest)  -> fprintf ppf "%a; %a" pp_expr e pp_expr (Seq(l, rest))
@@ -196,46 +156,24 @@ let rec pp_expr ppf = function
     | App(_, e1, e2)      -> fprintf ppf "%a %a" pp_expr e1 pp_expr e2
     | Let(_, x, t, e1, e2) -> 
          fprintf ppf "@[<2>let %a : %a = %a in %a end@]" fstring x pp_type t pp_expr e1 pp_expr e2
-<<<<<<< HEAD
-<<<<<<< HEAD
- (*   | PairLet(_, x1, t1, x2, t2, e1, e2) ->
-         fprintf ppf "@[<2>let (%a : %a, %a : %a) = %a in %a end@]" fstring x1 pp_type t1 fstring x2 pp_type t2 pp_expr e1 pp_expr e2
- *)
     | LetFun(_, f, (x, t1, e1), t2, e2)     ->
-=======
-    | PairLet(_, x1, t1, x2, t2, e1, e2) ->
-         fprintf ppf "@[<2>let (%a : %a, %a : %a) = %a in %a end@]" fstring x1 pp_type t1 fstring x2 pp_type t2 pp_expr e1 pp_expr e2
-    | LetFun(_, f, (x, t1, e1), t2, e2)     -> 
->>>>>>> ddf4993... Basic pair pattern matching added
-=======
- (*   | PairLet(_, x1, t1, x2, t2, e1, e2) ->
-         fprintf ppf "@[<2>let (%a : %a, %a : %a) = %a in %a end@]" fstring x1 pp_type t1 fstring x2 pp_type t2 pp_expr e1 pp_expr e2
- *)
-    | LetFun(_, f, (x, t1, e1), t2, e2)     ->
->>>>>>> 88428d0... All tuple pattern matching done in parser
          fprintf ppf "@[let %a(%a : %a) : %a =@ %a @ in %a @ end@]" 
                      fstring f fstring x  pp_type t1 pp_type t2 pp_expr e1 pp_expr e2
     | LetRecFun(_, f, (x, t1, e1), t2, e2)     -> 
          fprintf ppf "@[letrec %a(%a : %a) : %a =@ %a @ in %a @ end@]" 
                      fstring f fstring x  pp_type t1 pp_type t2 pp_expr e1 pp_expr e2
     | Index(_, i, e) -> fprintf ppf "#%a (%a)" pp_int i pp_expr e
-    | LetTuple(_, vl, tl, e1, e2) -> fprintf ppf "@[<2>let (%a) : %a = %a in %a end@]"
-                pp_var_list vl pp_type_list tl pp_expr e1 pp_expr e2
-    | LetTupleFun (_, f, xl, tl, e1, t, e2) -> fprintf ppf "@[<2>let %a(%a : %a) : %a =@ %a @ in %a @ end@]"
-                    fstring f pp_var_list xl pp_type_list tl  pp_type t  pp_expr e1 pp_expr e2
-    | LetRecTupleFun (_, f, xl, tl, e1, t, e2) -> fprintf ppf "@[<2>letrec %a(%a : %a) : %a =@ %a @ in %a @ end@]"
-                         fstring f pp_var_list xl pp_type_list tl  pp_type t  pp_expr e1 pp_expr e2
+    | LetTuple(_, bl, e1, e2) -> fprintf ppf "@[<2>let (%a) = %a in %a end@]"
+                pp_bind_list bl  pp_expr e1 pp_expr e2
+    | LetTupleFun (_, f, bl, e1, t, e2) -> fprintf ppf "@[<2>let %a(%a) : %a =@ %a @ in %a @ end@]"
+                    fstring f pp_bind_list bl   pp_type t  pp_expr e1 pp_expr e2
+    | LetRecTupleFun (_, f, bl, e1, t, e2) -> fprintf ppf "@[<2>letrec %a(%a) : %a =@ %a @ in %a @ end@]"
+                         fstring f pp_bind_list bl   pp_type t  pp_expr e1 pp_expr e2
 
-
-and  pp_var_list ppf = function
-   | [] -> ()
-   | [v] -> fstring ppf v
-   | (v::vs) -> fprintf ppf "%a, %a" fstring v pp_var_list vs
-and  pp_type_list ppf = function
-   | [] -> ()
-   | [t] -> pp_type ppf t
-   | (t::ts) -> fprintf ppf "%a * %a" pp_type t pp_type_list ts
-
+and pp_bind_list ppf = function
+  | [] -> ()
+  | [(x,t)] -> fprintf ppf "%a : %a" fstring x pp_type t
+  | (x,t)::rest -> fprintf ppf "%a : %a, %a" fstring x pp_type t pp_bind_list rest
 
 let print_expr e = 
     let _ = pp_expr std_formatter e
@@ -246,7 +184,6 @@ let eprint_expr e =
     in print_flush () 
 
 (* useful for degugging *) 
-
 
 let string_of_uop = function 
   | NEG -> "NEG" 
@@ -276,8 +213,7 @@ let rec string_of_type = function
   | TEbool            -> "TEbool" 
   | TEunit            -> "TEunit" 
   | TEref t           -> mk_con "TEref" [string_of_type t] 
-  | TEarrow(t1, t2)   -> mk_con "TEarrow" [string_of_type t1; string_of_type t2] 
- (* | TEproduct(t1, t2) -> mk_con "TEproduct" [string_of_type t1; string_of_type t2]  *)
+  | TEarrow(t1, t2)   -> mk_con "TEarrow" [string_of_type t1; string_of_type t2]
   | TEunion(t1, t2)   -> mk_con "TEunion" [string_of_type t1; string_of_type t2]
   | TEprod tl         -> mk_con "TEprod" [string_of_type_list tl]
 
@@ -295,9 +231,7 @@ let rec string_of_expr = function
     | UnaryOp(_, op, e)   -> mk_con "UnaryOp" [string_of_uop op; string_of_expr e]
     | Op(_, e1, op, e2)   -> mk_con "Op" [string_of_expr e1; string_of_bop op; string_of_expr e2]
     | If(_, e1, e2, e3)   -> mk_con "If" [string_of_expr e1; string_of_expr e2; string_of_expr e3]
-  (*  | Pair(_, e1, e2)     -> mk_con "Pair" [string_of_expr e1; string_of_expr e2] *)
     | Tuple(_, el)        -> mk_con "Tuple" [string_of_expr_list el]
-
     | Inl(_, t, e)        -> mk_con "Inl" [string_of_expr e] 
     | Inr(_, t, e)        -> mk_con "Inr" [string_of_expr e] 
     | Seq (_, el)         -> mk_con "Seq" [string_of_expr_list el] 
@@ -326,18 +260,14 @@ let rec string_of_expr = function
 	     mk_con "" [x1; string_of_type t1; string_of_expr e1]; 
 	     mk_con "" [x2; string_of_type t1; string_of_expr e2]]
 	 | Index(_, i, e) -> mk_con "Index" [string_of_int i; string_of_expr e]
-	 | LetTuple(_, vl, tl, e1, e2) -> mk_con "LetTuple" (vl @ (List.map string_of_type tl) @
-	                                                [string_of_expr e1; string_of_expr e2])
-	 | LetTupleFun (_, f, xl, tl, e1, t, e2) ->
-	        mk_con "LetFun" [f;
-                      mk_con "" (xl @ (List.map string_of_type tl) @
-                        [string_of_expr e1; string_of_type t; string_of_expr e2])]
-     | LetRecTupleFun (_, f, xl, tl, e1, t, e2) ->
-     	    mk_con "LetRecFun" [f;
-                       mk_con "" (xl @ (List.map string_of_type tl) @
-                        [string_of_expr e1; string_of_type t;  string_of_expr e2])]
-
-
+	 | LetTuple(_, bl, e1, e2) -> mk_con "LetTuple" (
+	 (List.map (fun (x,t) -> x ^ " : " ^ (string_of_type t)) bl) @ [string_of_expr e1; string_of_expr e2])
+	 | LetTupleFun (_, f, bl, e1, t, e2) ->
+	        mk_con "LetFun" (f::(List.map (fun (x,t) -> x ^ " : " ^ (string_of_type t)) bl)@
+                      [string_of_expr e1; string_of_type t; string_of_expr e2])
+     | LetRecTupleFun (_, f, bl, e1, t, e2) ->
+     	    mk_con "LetRecFun" (f::(List.map (fun (x,t) -> x ^ " : " ^ (string_of_type t)) bl)@
+                      [string_of_expr e1; string_of_type t; string_of_expr e2])
 
 and string_of_expr_list = function 
   | [] -> "" 

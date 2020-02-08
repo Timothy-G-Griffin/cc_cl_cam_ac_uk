@@ -86,15 +86,17 @@ expr:
 | INR texpr expr %prec UMINUS        { Past.Inr(get_loc(), $2, $3) } //
 | FUN LPAREN IDENT COLON texpr RPAREN ARROW expr END
                                      { Past.Lambda(get_loc(), ($3, $5, $8)) }
-|  LET LPAREN idlist RPAREN COLON tlist EQUAL expr IN expr END
-                                    {Past.LetTuple (get_loc(), $3, $6, $8, $10)}
+
 | LET IDENT COLON texpr EQUAL expr IN expr END           { Past.Let (get_loc(), $2, $4, $6, $8) }
-
-| LET IDENT LPAREN IDENT COMMA idlist COLON tlist RPAREN COLON texpr EQUAL expr IN expr END
-                                     { Past.LetTupleFun (get_loc(), $2, $4 :: $6, $8, $13, $11, $15)}
-
 | LET IDENT LPAREN IDENT COLON texpr RPAREN COLON texpr EQUAL expr IN expr END
                                      { Past.LetFun (get_loc(), $2, ($4, $6, $11), $9, $13) }
+ /* Changing format */
+| LET LPAREN bindlist RPAREN  EQUAL expr IN expr END
+                                     {Past.LetTuple (get_loc(), $3, $6, $8)}
+| LET IDENT LPAREN IDENT COLON texpr COMMA bindlist RPAREN COLON texpr EQUAL expr IN expr END
+                                     { Past.LetTupleFun (get_loc(), $2, ($4, $6)::$8, $13, $11, $15)}
+
+
 | CASE expr OF
       INL LPAREN IDENT COLON texpr RPAREN ARROW expr 
   BAR INR LPAREN IDENT COLON texpr RPAREN  ARROW expr 
@@ -128,11 +130,9 @@ texpr2:
 | texpr2 REF                          { Past.TEref $1 }
 | LPAREN texpr RPAREN                { $2 }
 
-
-idlist:
-| IDENT {[$1]}
-| IDENT COMMA idlist {$1 :: $3}
-
+bindlist:
+| IDENT COLON texpr {[($1, $3)]}
+| IDENT COLON texpr COMMA bindlist {($1, $3) :: $5}
 
 
 

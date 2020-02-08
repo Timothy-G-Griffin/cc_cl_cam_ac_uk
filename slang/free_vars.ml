@@ -33,6 +33,6 @@ let free_vars(bvars, exp) =
     | Seq (e :: rest)    -> aux bound (aux bound free e) (Seq rest)
     | Index(i, e)        -> aux bound free e
     | _                  -> free 
-    and lambda bound free (x, e) = aux (x :: bound) free e 
+    and lambda bound free (x, e) = if x <> "_" then aux (x :: bound) free e else aux bound free e
    in aux bvars [] exp 
 

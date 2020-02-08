@@ -39,9 +39,7 @@ and continuation_action =
   | ASSIGN of value
   | ASSIGN_FST of Ast.expr * env
   | TAIL of Ast.expr list * env
-
   | TUPLE_TAIL of Ast.expr list * value list * env
-
   | IF of expr * expr * env 
   | WHILE of Ast.expr * Ast.expr * env
   | MKINL

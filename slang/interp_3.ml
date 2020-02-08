@@ -383,7 +383,7 @@ let rec comp = function
                        let lab = new_label () in
                         let def = [LABEL lab; BIND x] @ c1 @ [SWAP; POP; RETURN] in
                             (def @ defs1 @ defs2,
-                              [MK_REC((lab, None)); BIND f] @ c2 @ [SWAP; POP])
+                              [MK_REC(f, (lab, None)); BIND f] @ c2 @ [SWAP; POP])
 
 let compile e = 
     let (defs, c) = comp e in 

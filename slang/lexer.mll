@@ -13,7 +13,7 @@ let next_line lexbuf =
 }
 
 let newline = ('\010' | "\013\010" )
-let ident_reg_exp = ['A'-'Z' 'a'-'z']+ ['0'-'9' 'A'-'Z' 'a'-'z' '_' '\'']* 
+let ident_reg_exp = ['A'-'Z' 'a'-'z']+ ['0'-'9' 'A'-'Z' 'a'-'z' '_' '\'']*|'_'
 let int_reg_exp = ['0'-'9']+
 
 rule token = parse

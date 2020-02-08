@@ -34,7 +34,8 @@ let report_type_mismatch (e1, t1) (e2, t2) =
 	      " and at location " ^ loc2_str ^ "\nexpression " ^ e2_str ^ "\nhas type " ^ t2_str)
 
 let rec find loc x = function 
-  | [] -> complain (x ^ " is not defined at " ^ (string_of_loc loc)) 
+  | [] -> if x = "_" then complain "Values cannot be bound to wildcard variable"
+          else complain (x ^ " is not defined at " ^ (string_of_loc loc))
   | (y, v) :: rest -> if x = y then v else find loc x rest
 
 
@@ -42,30 +43,25 @@ let rec find loc x = function
 (* TODO: Add subtyping - requires records i.e. how { vm } done in OCaml *)
 let rec match_types (t1, t2) = (t1 = t2)
 
-(* let make_pair loc (e1, t1) (e2, t2)  = (Pair(loc, e1, e2), TEproduct(t1, t2)) *)
 let make_inl loc t2 (e, t1)          = (Inl(loc, t2, e), TEunion(t1, t2))
 let make_inr loc t1 (e, t2)          = (Inr(loc, t1, e), TEunion(t1, t2))
 let make_lambda loc x t1 (e, t2)     = (Lambda(loc, (x, t1, e)), TEarrow(t1, t2))
 let make_ref loc (e, t)              = (Ref(loc, e), TEref t)
 let make_letfun loc f x t1 (body, t2) (e, t)    = (LetFun(loc, f, (x, t1, body), t2, e), t)
 let make_letrecfun loc f x t1 (body, t2) (e, t) = (LetRecFun(loc, f, (x, t1, body), t2, e), t)
-let make_lettuplefun loc f xl tl (e1, t2) (e2, t) = (LetTupleFun(loc, f, xl, tl, e1, t2, e2), t)
-let make_letrectuplefun loc f xl tl (e1, t2) (e2, t) = (LetRecTupleFun(loc, f, xl, tl, e1, t2, e2), t)
+let make_lettuplefun loc f bl (e1, t2) (e2, t) = (LetTupleFun(loc, f, bl, e1, t2, e2), t)
+let make_letrectuplefun loc f bl (e1, t2) (e2, t) = (LetRecTupleFun(loc, f, bl, e1, t2, e2), t)
 
 let make_let loc x t (e1, t1) (e2, t2)  = 
     if match_types (t, t1) 
     then (Let(loc, x, t, e1, e2), t2)
     else report_types_not_equal loc t t1
 
-(*
-let make_pairLet loc x1 t1 x2 t2 (e1, te1) (e2, te2) =
-    if match_types (TEproduct(t1, t2), te1)
-    then (PairLet(loc, x1, t1, x2, t2, e1, e2), te2)
-    else report_types_not_equal loc (TEproduct (t1,t2)) te1
-*)
-let make_tuple_let loc xs ts (e1, t1) (e2, t2) =
-   if match_types (TEprod ts, t1) then (LetTuple(loc, xs, ts, e1, e2), t2)
-   else report_types_not_equal loc (TEprod ts) t1
+
+let make_tuple_let loc binds (e1, t1) (e2, t2) =
+    let t = TEprod (List.map snd binds) in
+   if match_types (t, t1) then (LetTuple(loc, binds, e1, e2), t2)
+   else report_types_not_equal loc t t1
 
 let make_if loc (e1, t1) (e2, t2) (e3, t3) = 
      match t1 with 
@@ -82,15 +78,6 @@ let make_app loc (e1, t1) (e2, t2) =
          then (App(loc, e1, e2), t4)
          else report_expecting e2 (string_of_type t3) t2
     | _ -> report_expecting e1 "function type" t1
-(*
-let make_fst loc = function 
-  | (e, TEproduct(t, _)) -> (Fst(loc, e), t) 
-  | (e, t) -> report_expecting e "product" t
-
-let make_snd loc = function 
-  | (e, TEproduct(_, t)) -> (Snd(loc, e), t) 
-  | (e, t) -> report_expecting e "product" t
-*)
 
 let make_deref loc (e, t) = 
     match t with 
@@ -170,13 +157,13 @@ let make_index loc i (e, t) =
     | _ -> report_expecting e "tuple type" t
 
 let rec mem x = function
-  | [] -> true
-  | (y::rest) -> if x = y then true else mem x rest
+  | [] -> false
+  | (y::rest) -> x = y || mem x rest
 
-(* TODO: Allow _ variable *)
+(* TODO: Allow _ variable, but never add to env *)
 let rec check_tuple_bind bound = function
   | [] -> true
-  | (x::rest) -> if mem x bound then false else check_tuple_bind (x::bound) rest
+  | ((x,t)::rest) -> if mem x bound then false else check_tuple_bind (x::bound) rest
 
 let rec  infer env e = 
     match e with 
@@ -192,38 +179,40 @@ let rec  infer env e =
     | Assign(loc, e1, e2)  -> make_assign loc (infer env e1) (infer env e2) 
     | UnaryOp(loc, uop, e) -> make_uop loc uop (infer env e) 
     | Op(loc, e1, bop, e2) -> make_bop loc bop (infer env e1) (infer env e2) 
-    | If(loc, e1, e2, e3)  -> make_if loc (infer env e1) (infer env e2) (infer env e3)          
-  (*  | Pair(loc, e1, e2)    -> make_pair loc (infer env e1) (infer env e2)
-    | Fst(loc, e)          -> make_fst loc (infer env e)
-    | Snd (loc, e)         -> make_snd loc (infer env e) *)
+    | If(loc, e1, e2, e3)  -> make_if loc (infer env e1) (infer env e2) (infer env e3)
     | Inl (loc, t, e)      -> make_inl loc t (infer env e)
     | Inr (loc, t, e)      -> make_inr loc t (infer env e)
-
     | Tuple(loc, el)       -> infer_tuple loc env el
-
     | Case(loc, e, (x1, t1, e1), (x2, t2, e2)) ->  
             make_case loc t1 t2 x1 x2 (infer env e) (infer ((x1, t1) :: env) e1) (infer ((x2, t2) :: env) e2)
-    | Lambda (loc, (x, t, e)) -> make_lambda loc x t (infer ((x, t) :: env) e)
+    | Lambda (loc, (x, t, e)) -> let new_env = if x <> "_" then (x,t)::env else env in
+        make_lambda loc x t (infer new_env e)
     | App(loc, e1, e2)        -> make_app loc (infer env e1) (infer env e2)
-    | Let(loc, x, t, e1, e2)  -> make_let loc x t (infer env e1) (infer ((x, t) :: env) e2)
-    | LetFun(loc, f, (x, t1, body), t2, e) -> 
+    | Let(loc, x, t, e1, e2)  -> let new_env = if x <> "_" then (x,t)::env else env in
+        make_let loc x t (infer env e1) (infer new_env e2)
+    | LetFun(loc, f, (x, t1, body), t2, e) -> if f = "_" then complain "Functions must have names" else
       let env1 = (f, TEarrow(t1, t2)) :: env in 
-      let p = infer env1 e  in 
-      let env2 = (x, t1) :: env in 
+      let p = infer env1 e  in
+      let env2 = if x <> "_" then (x, t1) :: env else env in
          (try make_letfun loc f x t1 (infer env2 body) p 
           with _ -> let env3 = (f, TEarrow(t1, t2)) :: env2 in 
                         make_letrecfun loc f x t1 (infer env3 body) p 
          )
     | Index(loc, i, e)          -> make_index loc i (infer env e)
-    | LetTuple(loc, xl, tl, e1, e2) -> make_tuple_let loc xl tl (infer env e1) (infer ((List.combine xl tl) @ env) e2)
-    | LetTupleFun (loc, f, xl, tl, e1, t, e2) -> let env1 = (f, TEarrow(TEprod(tl), t)) :: env in
+    | LetTuple(loc, binds, e1, e2) -> if check_tuple_bind [] binds then
+    make_tuple_let loc binds (infer env e1) (infer ((List.filter (fun (x,_) -> x <> "_") binds) @ env) e2)
+    else complain "Variable already bound in tuple"
+    | LetTupleFun (loc, f, bl, e1, t, e2) -> if f = "_" then complain "Functions must have names" else
+    if check_tuple_bind [] bl then
+    let ftype = TEarrow(TEprod(List.map snd bl), t) in
+    let env1 = (f, ftype) :: env in
             let p = infer env1 e2 in
-            let env2 = (List.combine xl tl) @ env in
-             (try make_lettuplefun loc f xl tl (infer env2 e1) p
-                       with _ -> let env3 = (f, TEarrow(TEprod tl, t)) :: env2 in
-                                     make_letrectuplefun loc f xl tl (infer env3 e1) p
-                      )
-    | LetRecTupleFun (_, _, _, _, _, _, _) -> internal_error "LetRecTupleFun found in parsed AST"
+            let env2 = (List.filter (fun (x,_) -> x <> "_") bl) @ env in
+             (try make_lettuplefun loc f bl (infer env2 e1) p
+                       with _ -> let env3 = (f, ftype) :: env2 in
+                                     make_letrectuplefun loc f bl (infer env3 e1) p
+                      ) else complain "Variable already bound in tuple"
+    | LetRecTupleFun (_, _, _, _, _, _) -> internal_error "LetRecTupleFun found in parsed AST"
     | LetRecFun(_, _, _, _, _)  -> internal_error "LetRecFun found in parsed AST"
 
 
