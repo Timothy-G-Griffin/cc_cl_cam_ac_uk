@@ -45,4 +45,7 @@ seq2 101
 ref1 101
 ref2 101
 ref3 101
+tuples 4
+letTuples 2
+tupleFun 5
 while 3
