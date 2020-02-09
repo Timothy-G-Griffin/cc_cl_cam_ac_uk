@@ -34,7 +34,8 @@ type value =
      | PAIR of value * value 
      | INL of value 
      | INR of value 
-     | CLOSURE of location * env 
+     | CLOSURE of location * env
+     | REC_CLOSURE of location
 
 and instruction = 
   | PUSH of value 
@@ -54,7 +55,8 @@ and instruction =
   | MK_INL
   | MK_INR
   | MK_REF 
-  | MK_CLOSURE of location 
+  | MK_CLOSURE of location
+  | MK_REC of var * location
   | TEST of location 
   | CASE of location
   | GOTO of location
@@ -82,7 +84,10 @@ let update(env, (x, v)) = (x, v) :: env
 let rec lookup (env, x) = 
     match env with 
     | [] -> None
-    | (y, v) :: rest -> if x = y then Some v else lookup (rest, x) 
+    | (y, v) :: rest -> if x = y then Some(match v with
+        | REC_CLOSURE(loc) -> CLOSURE(loc, (y, REC_CLOSURE loc)::rest)
+        | _ -> v)
+      else lookup (rest, x)
 
 let rec search (evs, x) = 
   match evs with 
@@ -116,6 +121,7 @@ let rec string_of_value = function
      | INL v           -> "inl(" ^ (string_of_value v) ^ ")"
      | INR  v          -> "inr(" ^ (string_of_value v) ^ ")"
      | CLOSURE (loc, c) -> "CLOSURE(" ^ (string_of_closure (loc, c)) ^ ")"
+     | REC_CLOSURE(loc) -> "REC_CLOSURE(" ^ (string_of_location loc) ^ ")"
 
 and string_of_closure (loc, env) = 
    "(" ^ (string_of_location loc) ^ ", " ^ (string_of_env env) ^ ")"
@@ -152,6 +158,7 @@ and string_of_instruction = function
  | DEREF    -> "DEREF"
  | ASSIGN   -> "ASSIGN"
  | MK_CLOSURE loc  -> "MK_CLOSURE(" ^ (string_of_location loc) ^ ")"
+ | MK_REC (v, loc) -> "MK_REC(" ^ v ^ ", " ^ (string_of_location loc) ^ ")"
 
 and string_of_code c = string_of_list "\n " string_of_instruction c 
 
@@ -243,6 +250,7 @@ let step (cp, evs) =
  | (MK_REF,                   (V v) :: evs) -> let a = new_address () in (heap.(a) <- v; 
                                                (cp + 1, V(REF a) :: evs))
  | (MK_CLOSURE loc,                    evs) -> (cp + 1, V(CLOSURE(loc, evs_to_env evs)) :: evs)
+ | (MK_REC (f, loc),                   evs) -> (cp + 1, V(CLOSURE(loc, (f, REC_CLOSURE loc):: evs_to_env evs)) :: evs)
  | (APPLY,  V(CLOSURE ((_, Some i), env)) :: (V v) :: evs) 
                                             -> (i, (V v) :: (EV env) :: (RA (cp + 1)) :: evs)
 (* new intructions *) 
@@ -352,16 +360,18 @@ let rec comp = function
 *) 
  | LetFun(f, (x, e1), e2) -> 
                       let (defs1, c1) = comp e1 in  
-                      let (defs2, c2) = comp e2 in  
-                      let def = [LABEL f; BIND x] @ c1 @ [SWAP; POP; RETURN] in 
+                      let (defs2, c2) = comp e2 in
+                      let lab = new_label () in
+                      let def = [LABEL lab; BIND x] @ c1 @ [SWAP; POP; RETURN] in
                           (def @ defs1 @ defs2, 
-                           [MK_CLOSURE((f, None)); BIND f] @ c2 @ [SWAP; POP])
+                           [MK_CLOSURE((lab, None)); BIND f] @ c2 @ [SWAP; POP])
  | LetRecFun(f, (x, e1), e2) -> 
                       let (defs1, c1) = comp e1 in  
-                      let (defs2, c2) = comp e2 in  
-                      let def = [LABEL f; BIND x] @ c1 @ [SWAP; POP; RETURN] in 
+                      let (defs2, c2) = comp e2 in
+                      let lab = new_label () in
+                      let def = [LABEL lab; BIND x] @ c1 @ [SWAP; POP; RETURN] in
                           (def @ defs1 @ defs2, 
-                           [MK_CLOSURE((f, None)); BIND f] @ c2 @ [SWAP; POP])
+                           [MK_REC(f, (lab, None)); BIND f] @ c2 @ [SWAP; POP])
 let compile e = 
     let (defs, c) = comp e in 
     let result = c @               (* body of program *) 
@@ -395,6 +405,7 @@ let rec find lab = function
      | TEST (lab, _) -> TEST(lab, Some(find lab m))
      | CASE (lab, _) -> CASE(lab, Some(find lab m))
      | MK_CLOSURE (lab, _) -> MK_CLOSURE((lab, Some(find lab m)))
+     | MK_REC (f, (lab, _)) -> MK_REC(f, (lab, Some(find lab m)))
 (* 
      | MK_CLOSURE ((lab, _), fvars) -> MK_CLOSURE((lab, Some(find lab m)), fvars)
 *) 

@@ -63,16 +63,16 @@ rule token = parse
   | "unit" { UNITTYPE }
   | int_reg_exp { INT (int_of_string (Lexing.lexeme lexbuf)) }
   | ident_reg_exp { IDENT (Lexing.lexeme lexbuf) }
-  | "(*" { comment lexbuf } 
+  | "(*" { comment lexbuf; token lexbuf }
   | newline { next_line lexbuf; token lexbuf } 
   | eof { EOF }
   | _ { Errors.complain ("Lexer : Illegal character " ^ (Char.escaped(Lexing.lexeme_char lexbuf 0)))
 }
 
-(* note : not currently handling nested comments *) 
 and comment = parse
-  | "*)" { token lexbuf } 
-  | newline { next_line lexbuf; token lexbuf } 
+  | "*)" { () }
+  | newline { next_line lexbuf; comment lexbuf }
+  | "(*" {comment lexbuf; comment lexbuf }
   | _ { comment lexbuf } 
       
 
