@@ -3,6 +3,8 @@
 %{
 
 let get_loc = Parsing.symbol_start_pos
+let next_free = ref 0
+let new_free () = (next_free := !next_free + 1; string_of_int (!next_free))
 
 %}
 
@@ -61,8 +63,6 @@ simple_expr:
 | BANG simple_expr              { Past.Deref(get_loc(), $2) }
 | REF simple_expr               { Past.Ref(get_loc(), $2) }
 
-
-/* TODO: Ignore _ variable */
 /* FST/SND kept for back-compatibility */
 expr:
 | simple_expr                        {  $1 }
@@ -82,28 +82,28 @@ expr:
 | WHILE expr DO expr END              { Past.While(get_loc(), $2, $4) }
 | FST expr %prec UMINUS              { Past.Index(get_loc(), 1, $2) }
 | SND expr %prec UMINUS              { Past.Index(get_loc(), 2, $2) }
-| INL texpr expr %prec UMINUS        { Past.Inl(get_loc(), $2, $3) } // 2 conflicts if either included
-| INR texpr expr %prec UMINUS        { Past.Inr(get_loc(), $2, $3) } //
-| FUN LPAREN IDENT COLON texpr RPAREN ARROW expr END
-                                     { Past.Lambda(get_loc(), ($3, $5, $8)) }
+| INL texpr expr %prec UMINUS        { Past.Inl(get_loc(), $2, $3) }
+| INR texpr expr %prec UMINUS        { Past.Inr(get_loc(), $2, $3) }
+| INL expr %prec UMINUS        { Past.Inl(get_loc(), Past.TEany (ref (Past.Free (new_free()))), $2) }
+| INR expr %prec UMINUS        { Past.Inr(get_loc(), Past.TEany (ref (Past.Free (new_free()))), $2) }
+| FUN LPAREN IDENT optionalType RPAREN ARROW expr END
+                                     { Past.Lambda(get_loc(), ($3, $4, $7)) }
+| LET IDENT optionalType EQUAL expr IN expr END           { Past.Let (get_loc(), $2, $3 , $5, $7) }
+| LET IDENT LPAREN IDENT optionalType RPAREN optionalType EQUAL expr IN expr END
+            { Past.LetFun (get_loc(), $2, ($4, $5, $9), $7, $11) }
 
-| LET IDENT COLON texpr EQUAL expr IN expr END           { Past.Let (get_loc(), $2, $4, $6, $8) }
-| LET IDENT LPAREN IDENT COLON texpr RPAREN COLON texpr EQUAL expr IN expr END
-                                     { Past.LetFun (get_loc(), $2, ($4, $6, $11), $9, $13) }
- /* Changing format */
 | LET LPAREN bindlist RPAREN  EQUAL expr IN expr END
                                      {Past.LetTuple (get_loc(), $3, $6, $8)}
-| LET IDENT LPAREN IDENT COLON texpr COMMA bindlist RPAREN COLON texpr EQUAL expr IN expr END
-                                     { Past.LetTupleFun (get_loc(), $2, ($4, $6)::$8, $13, $11, $15)}
-
-
+| LET IDENT LPAREN IDENT optionalType COMMA bindlist RPAREN optionalType EQUAL expr IN expr END
+                                     { Past.LetTupleFun (get_loc(), $2, ($4, $5)::$7, $11, $9, $13)}
 | CASE expr OF
-      INL LPAREN IDENT COLON texpr RPAREN ARROW expr 
-  BAR INR LPAREN IDENT COLON texpr RPAREN  ARROW expr 
+      INL LPAREN IDENT optionalType RPAREN ARROW expr
+  BAR INR LPAREN IDENT optionalType RPAREN  ARROW expr
   END
-                                     { Past.Case (get_loc(), $2, ($6, $8, $11), ($15, $17, $20)) }
+                                     { Past.Case (get_loc(), $2, ($6, $7, $10), ($14, $15, $18)) }
  /* In sticking to SML style, tuple is 1-indexed */
 | INDEX INT expr                       { Past.Index (get_loc(), $2, $3)}
+
 
 exprlist:
 |   expr                             { [$1] }
@@ -113,26 +113,30 @@ exprtuple:
 | expr                  { [$1] }
 | expr COMMA exprtuple  { $1 :: $3 }
 
+optionalType:
+|                       { Past.TEany (ref (Past.Free (new_free()))) }
+| COLON texpr           { $2 }
+
 /* Have to give some precedences explicitly due to needing multiple levels for
    TEprod - which uses a list of types instead of just single types */
 texpr:
 | texpr2 %prec TEXPR               { $1 }
 | texpr ARROW texpr                { Past.TEarrow ($1, $3)}
 | texpr ADD texpr                  { Past.TEunion ($1, $3)}
-| texpr2 MUL tlist                 {Past.TEprod ($1::$3)}
+| texpr2 MUL tlist                 { Past.TEprod ($1::$3)}
 tlist:
 | texpr2 %prec TEXPR               { [$1] }
 | texpr2 MUL tlist                 {$1 :: $3}
 texpr2:
-| BOOL                               { Past.TEbool  }
+| BOOL                               { Past.TEbool }
 | INTTYPE                            { Past.TEint  }
 | UNITTYPE                           { Past.TEunit  }
-| texpr2 REF                          { Past.TEref $1 }
+| texpr2 REF                         { Past.TEref $1 }
 | LPAREN texpr RPAREN                { $2 }
 
 bindlist:
-| IDENT COLON texpr {[($1, $3)]}
-| IDENT COLON texpr COMMA bindlist {($1, $3) :: $5}
+| IDENT optionalType {[($1, $2)]}
+| IDENT optionalType COMMA bindlist {($1, $2) :: $4}
 
 
 

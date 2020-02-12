@@ -9,12 +9,17 @@ type loc = Lexing.position
 
 type type_expr = 
    | TEint
-   | TEbool 
-   | TEunit 
-   | TEref of type_expr 
+   | TEbool
+   | TEunit
+   | TEref of type_expr
    | TEarrow of type_expr * type_expr
    | TEunion of type_expr * type_expr
-   | TEprod of (type_expr list)
+   | TEprod of type_expr list
+   | TEany of type_bind ref
+
+and type_bind =
+   | Free of string
+   | Bound of type_expr
 
 type formals = (var * type_expr) list
 
@@ -31,7 +36,7 @@ type expr =
        | UnaryOp of loc * unary_oper * expr
        | Op of loc * expr * oper * expr
        | If of loc * expr * expr * expr
-       | Inl of loc * type_expr * expr 
+       | Inl of loc * type_expr * expr
        | Inr of loc * type_expr * expr
        | Tuple of loc * (expr list)
        | Case of loc * expr * lambda * lambda 
@@ -50,7 +55,7 @@ type expr =
        | LetTupleFun of loc * var * ((var * type_expr) list) * expr * type_expr * expr
        | LetRecTupleFun of loc * var * ((var * type_expr) list) * expr * type_expr * expr
 
-and lambda = var * type_expr * expr 
+and lambda = var * type_expr * expr
 
 let  loc_of_expr = function 
     | Unit loc                      -> loc 
@@ -92,15 +97,17 @@ open Format
    http://caml.inria.fr/pub/docs/manual-ocaml/libref/Format.html
 *) 
 
-let rec pp_type = function 
-  | TEint -> "int" 
-  | TEbool -> "bool" 
-  | TEunit -> "unit" 
+let rec pp_type = function
+  | TEint -> "int"
+  | TEbool -> "bool"
+  | TEunit -> "unit"
   | TEref t           -> "(" ^ (pp_type t) ^ " ref)"
   | TEarrow(t1, t2)   -> "(" ^ (pp_type t1) ^ " -> " ^ (pp_type t2) ^ ")"
   | TEunion(t1, t2)   -> "(" ^ (pp_type t1) ^ " + " ^ (pp_type t2) ^ ")"
   | TEprod tl -> "(" ^ List.fold_right (fun v -> fun s -> (pp_type v) ^ s) tl ")"
-
+  | TEany b -> match !b with
+                | Free s -> "T" ^ s
+                | Bound t -> pp_type t
 
 let pp_uop = function 
   | NEG -> "-" 
@@ -208,14 +215,17 @@ let mk_con con l =
       | s::rest -> aux (carry ^ s ^ ", ") rest 
     in aux (con ^ "(") l 
 
-let rec string_of_type = function 
-  | TEint             -> "TEint" 
-  | TEbool            -> "TEbool" 
-  | TEunit            -> "TEunit" 
-  | TEref t           -> mk_con "TEref" [string_of_type t] 
+let rec string_of_type = function
+  | TEint             -> "TEint"
+  | TEbool            -> "TEbool"
+  | TEunit            -> "TEunit"
+  | TEref t           -> mk_con "TEref" [string_of_type t]
   | TEarrow(t1, t2)   -> mk_con "TEarrow" [string_of_type t1; string_of_type t2]
   | TEunion(t1, t2)   -> mk_con "TEunion" [string_of_type t1; string_of_type t2]
   | TEprod tl         -> mk_con "TEprod" [string_of_type_list tl]
+  | TEany b -> mk_con "TEany" [match !b with
+                               | Free s -> "T" ^ s
+                               | Bound t -> string_of_type t]
 
 and string_of_type_list = function
   | [] -> ""
