@@ -194,24 +194,30 @@ let rec  infer env e =
       let env1 = (f, TEarrow(t1, t2)) :: env in 
       let p = infer env1 e  in
       let env2 = if x <> "_" then (x, t1) :: env else env in
-         (try make_letfun loc f x t1 (infer env2 body) p 
-          with _ -> let env3 = (f, TEarrow(t1, t2)) :: env2 in 
-                        make_letrecfun loc f x t1 (infer env3 body) p 
+         (try let (body', t') = infer env2 body in if match_types(t2, t') then
+              make_letfun loc f x t1 (body', t') p
+              else report_types_not_equal loc t' t2
+          with _ -> let env3 = (f, TEarrow(t1, t2)) :: env2 in
+              let (body', t') = infer env3 body in if match_types(t2, t') then
+                   make_letrecfun loc f x t1 (body', t') p
+                   else report_types_not_equal loc t' t2
          )
     | Index(loc, i, e)          -> make_index loc i (infer env e)
     | LetTuple(loc, binds, e1, e2) -> if check_tuple_bind [] binds then
-    make_tuple_let loc binds (infer env e1) (infer ((List.filter (fun (x,_) -> x <> "_") binds) @ env) e2)
-    else complain "Variable already bound in tuple"
+      make_tuple_let loc binds (infer env e1) (infer ((List.filter (fun (x,_) -> x <> "_") binds) @ env) e2)
+      else complain "Variable already bound in tuple"
     | LetTupleFun (loc, f, bl, e1, t, e2) -> if f = "_" then complain "Functions must have names" else
-    if check_tuple_bind [] bl then
-    let ftype = TEarrow(TEprod(List.map snd bl), t) in
-    let env1 = (f, ftype) :: env in
-            let p = infer env1 e2 in
-            let env2 = (List.filter (fun (x,_) -> x <> "_") bl) @ env in
-             (try make_lettuplefun loc f bl (infer env2 e1) p
-                       with _ -> let env3 = (f, ftype) :: env2 in
-                                     make_letrectuplefun loc f bl (infer env3 e1) p
-                      ) else complain "Variable already bound in tuple"
+      if check_tuple_bind [] bl then
+      let ftype = TEarrow(TEprod(List.map snd bl), t) in let env1 = (f, ftype) :: env in
+      let p = infer env1 e2 in let env2 = (List.filter (fun (x,_) -> x <> "_") bl) @ env in
+             (try let (body', t') = infer env2 e1 in if match_types(t, t') then
+                  make_lettuplefun loc f bl (body', t') p
+                  else report_types_not_equal loc t' t
+              with _ -> let env3 = (f, ftype) :: env2 in
+                  let (body', t') = infer env3 e1 in if match_types(t, t') then
+                  make_letrectuplefun loc f bl (body', t') p
+                  else report_types_not_equal loc t' t
+              ) else complain "Variable already bound in tuple"
     | LetRecTupleFun (_, _, _, _, _, _) -> internal_error "LetRecTupleFun found in parsed AST"
     | LetRecFun(_, _, _, _, _)  -> internal_error "LetRecFun found in parsed AST"
 
