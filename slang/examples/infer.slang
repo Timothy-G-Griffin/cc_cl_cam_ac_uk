@@ -15,9 +15,7 @@
 (* let f (a, b) = true in f (1,2) + 3 end *)
 (* let f (a, b) = a in f (1,true) + 3 end *)
 
-(* Causes an issue currently, not correctly copying output type *)
 (* let f (a, b) = a in f (true,true) + 3 end *)
- (* let f (x) = x in f 1 + 3 end *)
  (* let f (x) = x in (f true) + 3 end *)
 (* let f (a, b) = true in f (true,true) + 3 end *)
 

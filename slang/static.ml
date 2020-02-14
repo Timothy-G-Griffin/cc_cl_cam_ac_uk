@@ -38,8 +38,6 @@ let nextFree = ref 0
 let newTEany () = (nextFree := !nextFree + 1; TEany (ref (Free ("_" ^ (string_of_int (!nextFree))))))
 
 (* require r1 = r2 or not within r2 at all *)
-(* TODO: Probably neater/more efficient way to do *)
-(* Could do check before unifying?... *)
 let rec occurs_check tr t2 =
    let rec aux = function
       | TEany b -> if b == tr then complain "Failed occurs check" else (match !b with
@@ -60,14 +58,26 @@ let rec occurs_check tr t2 =
      | TEprod tl -> List.for_all aux tl
      | _ -> true
 
+(* follow chains of unifications, doing path compression *)
+let simple_type t =
+  let rec aux p t = match t with
+    | TEany b -> (match !b with
+       | Free _ -> t
+       | Bound t1 -> (let st = aux b t1 in p := Bound st; st))
+    | _ -> t
+  in match t with
+    | TEany b -> (match !b with
+      | Free _ -> t
+      | Bound t1 -> aux b t1)
+    | _ -> t
+
 (* may want to make this more interesting someday ... *)
 (* TODO: Add subtyping - requires records i.e. how { vm } done in OCaml *)
-(* TODO: Have match_types call type-mismatch or let functions do it to be more specific? *)
 let rec match_types (t1, t2) =
 match (t1, t2) with
   | (TEany tr, t2) -> (match !tr with
                       | Bound t -> match_types(t, t2)
-                      | Free _ -> (match t2 with (* Uniqueness preserved by ptrs/copying and variable names so can use = or == *)
+                      | Free _ -> (match t2 with
                         | TEany tr2 -> if tr = tr2 then true else (tr := Bound(t2); occurs_check tr t2)
                         | _ -> (tr := Bound(t2); occurs_check tr t2)))
   | (t1, TEany tr) -> (match !tr with
@@ -78,26 +88,18 @@ match (t1, t2) with
   | (TEref t1, TEref t2) -> match_types (t1, t2)
   | (TEarrow(t1, t2), TEarrow(t3, t4)) -> match_types (t1, t3) && match_types (t2, t4)
   | (TEunion(t1, t2), TEunion(t3, t4)) -> match_types (t1, t3) && match_types (t2, t4)
-  (* [] represents tuple of unknown size/types *)
-  (* TODO: Put back in or find way to defer test
+  (* [] allows tuple of unknown size/types *)
+  (*
   | (TEprod l1, TEprod l2) -> if l1 = [] then (r1:=!r2; true) else if rl2 = [] then (r2:=!r1; true)
       else List.for_all  match_types  (List.combine rl1 rl2) *)
   | (TEprod l1, TEprod l2) -> List.for_all match_types (List.combine l1 l2)
   | (t1, t2) ->  t1 = t2 (* Could add subtyping here *)
 
-(* follow chains *)
-(* TODO: Rewrite other functions to use this for copy/checking *)
-let rec simple_type t = match t with
-  | TEany b -> (match !b with
-      | Bound t1 -> simple_type t1
-      | Free _ -> t)
-  | _ -> t
-
 let rec lookup x = function
   | [] -> None
   | (y, v) :: rest -> if y == x then Some v else lookup x rest
 
-(* List of bindings needed to preserve pointer graph *)
+(* A list of bindings is needed to preserve pointer graph *)
 let rec copy_type t =
   let rec aux bound t = match t with
     | TEany b -> (match lookup b bound with
@@ -221,15 +223,11 @@ let rec nth = function
     | (n, t::tl) -> if n > 0 then nth (n-1,tl) else complain "Index must be greater than 0"
     | _ -> complain "Index greater than size of tuple"
 
-(* TODO: Work out how to defer type decision of product. Maybe add an option to Bound? *)
-(* Could then learn just a subset of features at a time, still allows strong typing
-e.g. fn y -> ((fn x -> #2 x) y + 5)  then x must be (TEany(BoundTuple [any, int, ...]*)
+(* Could extend to allow partially unifying a tuple while keeping type safety
+e.g. fn y -> ((fn x -> #2 x) y + 5) : then y must be (TEany(BoundTuple [any, int, ...]*)
 let make_index loc i (e, t) =
     match simple_type t with
       | TEprod tl -> (Index(loc, i, e), nth (i, tl))
- (*   if match_types(t,  (TEprod [])) then match !t with
-    | TEprod tl ->  (Index(loc, i, e), nth (i, tl))
-    | _ -> report_expecting e "tuple type"  t *)
       | TEany _ -> complain "Can't find a fixed record type."
       | _ -> report_expecting e "tuple" t
 
@@ -299,7 +297,6 @@ let rec  infer env e =
          ) else complain "Variable already bound in tuple"
     | LetRecTupleFun (_, _, _, _, _, _) -> internal_error "LetRecTupleFun found in parsed AST"
     | LetRecFun(_, _, _, _, _)  -> internal_error "LetRecFun found in parsed AST"
-
 
 and infer_seq loc env el = 
     let rec aux carry = function
