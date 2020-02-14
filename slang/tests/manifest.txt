@@ -33,12 +33,15 @@ fib5_v2 8
 fib10 89
 gcd 2
 fun 101
+infer 5
+infer2 4
 labels 1
 labels2 1
 labels3 6
 lambda1 101
 lambda2 101
 lambda3 101
+poly 2
 seq0 101
 seq1 101
 seq2 101
