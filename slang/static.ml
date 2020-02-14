@@ -39,6 +39,7 @@ let newTEany () = (nextFree := !nextFree + 1; TEany (ref (Free ("_" ^ (string_of
 
 (* require r1 = r2 or not within r2 at all *)
 (* TODO: Probably neater/more efficient way to do *)
+(* Could do check before unifying?... *)
 let rec occurs_check tr t2 =
    let rec aux = function
       | TEany b -> if b == tr then complain "Failed occurs check" else (match !b with
@@ -61,6 +62,7 @@ let rec occurs_check tr t2 =
 
 (* may want to make this more interesting someday ... *)
 (* TODO: Add subtyping - requires records i.e. how { vm } done in OCaml *)
+(* TODO: Have match_types call type-mismatch or let functions do it to be more specific? *)
 let rec match_types (t1, t2) =
 match (t1, t2) with
   | (TEany tr, t2) -> (match !tr with
@@ -114,12 +116,11 @@ let rec copy_type t =
 
 (* Augmented to say if type should be copied or not.
 Reason - don't copy type of f within recursive definition else argument won't be constrained.
-Do copy outside of definition as shouldn't remove polymorphism
-*)
+Do copy outside of definition as application shouldn't remove polymorphism *)
 let rec find loc x = function
   | [] -> if x = "_" then complain "Values cannot be bound to wildcard variable"
           else complain (x ^ " is not defined at " ^ (string_of_loc loc))
-  | (y, v, true) :: rest -> if x = y then copy_type v  else find loc x rest
+  | (y, v, true) :: rest -> if x = y then copy_type v else find loc x rest
   | (y, v, false) :: rest -> if x = y then v else find loc x rest
 
 let make_inl loc t2 (e, t1)          = (Inl(loc, t2, e),  (TEunion(t1, t2)))
@@ -136,9 +137,8 @@ let make_let loc x t (e1, t1) (e2, t2)  =
     then (Let(loc, x, t, e1, e2), t2)
     else report_types_not_equal loc t t1
 
-
 let make_tuple_let loc binds (e1, t1) (e2, t2) =
-    let t =  (TEprod (List.map snd binds)) in
+    let t = (TEprod (List.map snd binds)) in
    if match_types (t, t1) then (LetTuple(loc, binds, e1, e2), t2)
    else report_types_not_equal loc t  t1
 
@@ -149,49 +149,43 @@ let make_if loc (e1, t1) (e2, t2) (e3, t3) =
       else report_expecting e1 "boolean"  t1
 
 let make_app loc (e1, t1) (e2, t2) =
-   (* TODO: Rewrite properly to avoid issue of unbinding t1 = (a -> a) to t1 = (a -> b)
-   Need more global approach to unification? *)
     if match_types (TEarrow (t2, newTEany ()), t1) then
     match simple_type t1 with
     | TEarrow(t3, t4) -> (App(loc, e1, e2), t4)
-    | _ -> complain "Internal error - should never happen due to type unification"
+    | _ -> complain "Internal error - Should never happen due to previous type unification"
     else match simple_type t1 with
-    | TEarrow(t3, t4) -> report_expecting e2 (string_of_type  t3)  t2
+    | TEarrow(t3, t4) -> report_expecting e2 (string_of_type t3)  t2
     | _ -> report_expecting e1 "function type"  t1
 
 let make_deref loc (e, t) =
     if match_types (TEref (newTEany ()), t) then
-    match t with
+    match simple_type t with
     | TEref t' -> (Deref(loc, e), t')
-    | _ -> report_expecting e "ref type"  t
-    else complain "Not a ref type" (* TODO: replace with propper error *)
-
+    | _ -> complain "Internal error - Should never happen due to previous type unification"
+    else report_expecting e "ref type"  t
 
 let make_uop loc uop (e, t) =
     if uop = NEG then if match_types(t, TEint) then (UnaryOp(loc, uop, e), t) else report_expecting e "integer"  t
                  else if match_types(t, TEbool) then (UnaryOp(loc, uop, e), t) else report_expecting e "boolean"  t
 
-(* TODO: Account for debugging i *)
 let make_bop loc bop (e1, t1) (e2, t2) =
-    (* Perform any coercions first *)
-    if match bop with
-      | OR -> match_types(t1, TEbool) && match_types(t2, TEbool)
-      | AND -> match_types(t1, TEbool) && match_types(t2, TEbool)
-      | EQ -> match_types(t1, t2)
-      | _ -> match_types(t1, TEint) && match_types(t2, TEint)
-    then
-    match bop with
-      | AND -> (Op(loc, e1, bop, e2), TEbool)
-      | OR -> (Op(loc, e1, bop, e2), TEbool)
-      | LT -> (Op(loc, e1, bop, e2), TEbool)
-      | EQ -> (match simple_type t1 with
-        | TEint -> (Op(loc, e1, EQI, e2), TEbool)
-        | TEbool -> (Op(loc, e1, EQB, e2), TEbool)
-        | TEany _ -> if match_types (t1, TEint) then (Op(loc, e1, EQI, e2), TEbool) else
-                        complain "Could not infer integer equality" (* Note - forced to make a choice *)
-        | _ -> complain "Non equality type")
-      | _ -> (Op(loc, e1, bop, e2), TEint)
-    else complain "Wrong type for binary op" (* TODO: Nicer error msg *)
+  match bop with
+  | OR | AND -> if match_types (t1, TEbool) then
+            if match_types (t2, TEbool) then (Op(loc, e1, bop, e2), TEbool)
+            else report_expecting e2 "boolean" t2
+          else report_expecting e1 "boolean" t1
+  | EQ -> if match_types(t1,t2) then (match simple_type t1 with
+             | TEint -> (Op(loc, e1, EQI, e2), TEbool)
+             | TEbool -> (Op(loc, e1, EQB, e2), TEbool)
+             | TEany _ -> if match_types(t1, TEint) then (Op(loc, e1, EQI, e2), TEbool)
+                        else complain "Internal error - Should never happen due to unification"
+             | _ -> report_expecting e1 "integer or boolean" t1)
+           else report_type_mismatch (e1, t1) (e2, t2)
+  | _ -> if match_types(t1, TEint) then
+           if match_types(t2, TEint) then
+             if bop = LT then (Op(loc, e1, bop, e2), TEbool) else (Op(loc, e1, bop, e2), TEint)
+           else report_expecting e2 "integer" t2
+         else report_expecting e1 "integer" t1
 
 let make_while loc (e1, t1) (e2, t2)    = 
     if match_types(t1, TEbool)
@@ -206,22 +200,20 @@ let make_assign loc (e1, t1) (e2, t2) =
     | TEref t -> if match_types(t, t2)
                  then (Assign(loc, e1, e2), TEunit)
                  else report_type_mismatch (e1, t) (e2, t2)
-    | _ -> complain "Internal error: Shouldn't happen due to earlier unification"
+    | _ -> complain "Internal error: Should never happen due to unification"
     else report_expecting e1 "ref type"  t1
 
-(* TODO: Should probably do some sort of different check function? i.e. check without unifying *)
 let make_case loc left right x1 x2 (e1, t1) (e2, t2) (e3, t3) =
     if match_types(t1, TEunion (newTEany (), newTEany ())) then
     match simple_type t1 with
     | TEunion(left', right') ->
-      if match_types(left, left')
-      then if match_types(right, right')
-           then if match_types(t3, t2)
-                then (Case(loc, e1, (x1, left, e2), (x2, right, e3)), t2)
-                else report_type_mismatch (e2, t2) (e3, t3)
-           else report_types_not_equal loc  right  right'
+      if match_types(left, left') then
+        if match_types(right, right') then
+          if match_types(t3, t2) then (Case(loc, e1, (x1, left, e2), (x2, right, e3)), t2)
+          else report_type_mismatch (e2, t2) (e3, t3)
+        else report_types_not_equal loc  right  right'
       else report_types_not_equal loc  left  left'
-    | _ -> complain "Internal error: Shouldn't happen due to earlier unification"
+    | _ -> complain "Internal error: Should never happen due to unification"
     else  report_expecting e1 "disjoint union"  t1
 
 let rec nth = function
@@ -237,9 +229,9 @@ let make_index loc i (e, t) =
       | TEprod tl -> (Index(loc, i, e), nth (i, tl))
  (*   if match_types(t,  (TEprod [])) then match !t with
     | TEprod tl ->  (Index(loc, i, e), nth (i, tl))
-    | _ -> report_expecting e "tuple type"  t*)
+    | _ -> report_expecting e "tuple type"  t *)
       | TEany _ -> complain "Can't find a fixed record type."
-      | _ -> complain "Not a tuple" (* TODO: Use proper type warning *)
+      | _ -> report_expecting e "tuple" t
 
 let rec mem x = function
   | [] -> false
@@ -267,22 +259,22 @@ let rec  infer env e =
     | Inl (loc, t, e)      -> make_inl loc t (infer env e)
     | Inr (loc, t, e)      -> make_inr loc t (infer env e)
     | Tuple(loc, el)       -> infer_tuple loc env el
-
     | Case(loc, e, (x1, t1, e1), (x2, t2, e2)) ->
-            make_case loc t1 t2 x1 x2 (infer env e) (infer ((x1, t1, false) :: env) e1) (infer ((x2, t2, false) :: env) e2)
+        make_case loc t1 t2 x1 x2 (infer env e) (infer ((x1, t1, false) :: env) e1) (infer ((x2, t2, false) :: env) e2)
     | Lambda (loc, (x, t, e)) ->
         let new_env = if x <> "_" then (x, t, false)::env else env in
         make_lambda loc x t (infer new_env e)
     | App(loc, e1, e2)        -> make_app loc (infer env e1) (infer env e2)
-    | Let(loc, x, t, e1, e2)  -> let (e1', t1) = (infer env e1) in if match_types (t, t1) then
-        (let new_env = if x <> "_" then (x, t1, false)::env else env in
-        make_let loc x t (infer env e1) (infer new_env e2)) else complain "Could not infer correct type"
+    | Let(loc, x, t, e1, e2)  -> let (e1', t1) = (infer env e1) in
+        if match_types (t, t1) then let new_env = if x <> "_" then (x, t1, false)::env else env in
+          make_let loc x t (infer env e1) (infer new_env e2)
+        else report_types_not_equal loc t t1
     | LetFun(loc, f, (x, t1, body), t2, e) -> if f = "_" then complain "Functions must have names" else
-      let ftype = TEarrow(t1, t2) in
-      let env1 = (f, ftype, true) :: env in
+      let ftype = TEarrow(t1, t2) in let env1 = (f, ftype, true) :: env in
       let env2 = if x <> "_" then (x, t1, false) :: env else env in
-         (try let (body', t) = infer env2 body in if match_types(t, t2) then let p = infer env1 e  in make_letfun loc f x t1 (body', t) p
-                                                   else report_expecting  body (string_of_type  t2)  t
+         (try let (body', t) = infer env2 body in
+            if match_types(t, t2) then let p = infer env1 e  in make_letfun loc f x t1 (body', t) p
+            else report_expecting body (string_of_type t2) t
           with _ -> let env3 = (f, ftype, false) :: env2 in
                        let (body', t) = infer env3 body in
                        if match_types(t, t2) then

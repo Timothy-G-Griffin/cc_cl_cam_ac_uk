@@ -223,9 +223,9 @@ let rec string_of_type = function
   | TEarrow(t1, t2)   -> mk_con "TEarrow" [string_of_type t1; string_of_type t2]
   | TEunion(t1, t2)   -> mk_con "TEunion" [string_of_type t1; string_of_type t2]
   | TEprod tl         -> mk_con "TEprod" [string_of_type_list tl]
-  | TEany b -> mk_con "TEany" [match !b with
-                               | Free s -> "T" ^ s
-                               | Bound t -> string_of_type t]
+  | TEany b           -> match !b with
+                 | Free s -> "T" ^ s
+                 | Bound t -> string_of_type t
 
 and string_of_type_list = function
   | [] -> ""
