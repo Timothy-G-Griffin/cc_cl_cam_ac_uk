@@ -12,6 +12,8 @@ add4 101
 add5 101
 add6 101
 add7 101
+case1 10
+case2 10
 int 101
 sub 101
 expr 101
@@ -33,6 +35,7 @@ fib5_v2 8
 fib10 89
 gcd 2
 fun 101
+fun2 101
 infer 5
 infer2 4
 labels 1

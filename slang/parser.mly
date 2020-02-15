@@ -4,7 +4,7 @@
 
 let get_loc = Parsing.symbol_start_pos
 let next_free = ref 0
-let new_free () = (next_free := !next_free + 1; string_of_int (!next_free))
+let new_free () = (next_free := !next_free + 1; Past.TEany (ref (Past.Free (string_of_int (!next_free)))))
 
 %}
 
@@ -84,26 +84,29 @@ expr:
 | SND expr %prec UMINUS              { Past.Index(get_loc(), 2, $2) }
 | INL texpr expr %prec UMINUS        { Past.Inl(get_loc(), $2, $3) }
 | INR texpr expr %prec UMINUS        { Past.Inr(get_loc(), $2, $3) }
-| INL expr %prec UMINUS        { Past.Inl(get_loc(), Past.TEany (ref (Past.Free (new_free()))), $2) }
-| INR expr %prec UMINUS        { Past.Inr(get_loc(), Past.TEany (ref (Past.Free (new_free()))), $2) }
-| FUN LPAREN IDENT optionalType RPAREN ARROW expr END
-                                     { Past.Lambda(get_loc(), ($3, $4, $7)) }
+| INL expr %prec UMINUS        { Past.Inl(get_loc(), new_free(), $2) }
+| INR expr %prec UMINUS        { Past.Inr(get_loc(), new_free(), $2) }
+| FUN simpleIdent ARROW expr END
+                                     { Past.Lambda(get_loc(), (fst $2, snd $2, $4)) }
 | LET IDENT optionalType EQUAL expr IN expr END           { Past.Let (get_loc(), $2, $3 , $5, $7) }
-| LET IDENT LPAREN IDENT optionalType RPAREN optionalType EQUAL expr IN expr END
-            { Past.LetFun (get_loc(), $2, ($4, $5, $9), $7, $11) }
-
+| LET IDENT simpleIdent optionalType EQUAL expr IN expr END
+            { Past.LetFun (get_loc(), $2, (fst $3, snd $3, $6), $4, $8) }
 | LET LPAREN bindlist RPAREN  EQUAL expr IN expr END
                                      {Past.LetTuple (get_loc(), $3, $6, $8)}
 | LET IDENT LPAREN IDENT optionalType COMMA bindlist RPAREN optionalType EQUAL expr IN expr END
                                      { Past.LetTupleFun (get_loc(), $2, ($4, $5)::$7, $11, $9, $13)}
 | CASE expr OF
-      INL LPAREN IDENT optionalType RPAREN ARROW expr
-  BAR INR LPAREN IDENT optionalType RPAREN  ARROW expr
+      INL simpleIdent ARROW expr
+  BAR INR simpleIdent  ARROW expr
   END
-                                     { Past.Case (get_loc(), $2, ($6, $7, $10), ($14, $15, $18)) }
+                                     { Past.Case (get_loc(), $2, (fst $5, snd $5, $7), (fst $10, snd $10, $12)) }
  /* In sticking to SML style, tuple is 1-indexed */
 | INDEX INT expr                       { Past.Index (get_loc(), $2, $3)}
 
+/* For single argument and no type given, brackets optional */
+simpleIdent:
+| IDENT                             {($1, new_free())}
+| LPAREN IDENT optionalType RPAREN  {($2, $3)}
 
 exprlist:
 |   expr                             { [$1] }
@@ -114,7 +117,7 @@ exprtuple:
 | expr COMMA exprtuple  { $1 :: $3 }
 
 optionalType:
-|                       { Past.TEany (ref (Past.Free (new_free()))) }
+|                       { new_free() }
 | COLON texpr           { $2 }
 
 /* Have to give some precedences explicitly due to needing multiple levels for
