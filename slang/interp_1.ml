@@ -24,7 +24,7 @@ type value =
      | INT of int 
      | BOOL of bool 
      | UNIT
-     | PAIR of value * value 
+     | TUPLE of (value list)
      | INL of value 
      | INR of value 
      | REC_CLOSURE of closure
@@ -39,19 +39,17 @@ and continuation_action =
   | ASSIGN of value
   | ASSIGN_FST of Ast.expr * env
   | TAIL of Ast.expr list * env
+  | TUPLE_TAIL of Ast.expr list * value list * env
   | IF of expr * expr * env 
   | WHILE of Ast.expr * Ast.expr * env
-  | MKPAIR of value 
-  | PAIR_FST of expr * env 
-  | FST
-  | SND
   | MKINL
   | MKINR
   | MKREF 
   | DEREF 
   | CASE of var * expr * var * expr * env 
   | APPLY of value 
-  | ARG of expr * env 
+  | ARG of expr * env
+  | INDEX of int
 
 and continuation = continuation_action  list
 
@@ -143,11 +141,16 @@ let rec string_of_value = function
      | BOOL b         -> string_of_bool b
      | INT n          -> string_of_int n 
      | UNIT           -> "UNIT"
-     | PAIR(v1, v2)   -> "PAIR(" ^ (string_of_value v1) ^ ", " ^ (string_of_value v2) ^ ")"
      | INL v          -> "INL(" ^ (string_of_value v) ^ ")"
      | INR v          -> "INR(" ^ (string_of_value v) ^ ")"
      | CLOSURE cl     -> "CLOSURE(" ^ (string_of_closure cl) ^ ")"
      | REC_CLOSURE cl -> "REC_CLOSURE(" ^ string_of_closure cl ^ ")"
+     | TUPLE vl       -> "(" ^ (string_of_value_list vl)
+
+and string_of_value_list = function
+  | [] -> "" (* error if this happens *)
+  | [v] -> (string_of_value v) ^ ")"
+  | (v::rest) -> (string_of_value v) ^ ", " ^ string_of_value_list rest
 
 and string_of_closure (x, e, env) = x ^ ", " ^ (Ast.string_of_expr e) ^  ", " ^ (string_of_env env)
 
@@ -158,10 +161,7 @@ and string_of_binding (x, v) =    "(" ^ x ^ ", " ^ (string_of_value v) ^ ")"
 let string_of_expr_list = string_of_list "; " Ast.string_of_expr
 
 let string_of_continuation_action = function 
-  | UNARY op     -> "UNARY " ^ (string_of_unary_oper op) 
-  | MKPAIR v     -> "MKPAIR " ^ (string_of_value v)
-  | FST          -> "FST"
-  | SND          -> "SND"
+  | UNARY op     -> "UNARY " ^ (string_of_unary_oper op)
   | MKINL        -> "MKINL"
   | MKINR        -> "MKINR"
   | APPLY v     -> "APPLY " ^ (string_of_value v) 
@@ -173,9 +173,7 @@ let string_of_continuation_action = function
                 ^ x2 ^ ", " 
                 ^ (Ast.string_of_expr e2) ^ ", " 
                 ^ (string_of_env env) ^ ")"
-  | PAIR_FST (e, env)    -> 
-      "PAIR_FST(" ^ (Ast.string_of_expr e) ^ ", " ^ (string_of_env env) ^ ")"
-  | OPER_FST(e, env, op) ->  
+ | OPER_FST(e, env, op) ->
       "OPER_FST(" ^ (Ast.string_of_expr e) ^ ", " ^ (string_of_env env) ^ ", " ^ (string_of_oper op) ^ ")"
   | IF (e1, e2, env) -> 
       "IF(" ^ (Ast.string_of_expr e1) ^ ", " ^ (Ast.string_of_expr e2) ^ ", " ^ (string_of_env env) ^ ")"
@@ -183,10 +181,14 @@ let string_of_continuation_action = function
   | ASSIGN_FST (e, env) -> 
      "ASSIGN_FST(" ^ (Ast.string_of_expr e) ^ ", " ^ (string_of_env env) ^ ")"
   | TAIL (el , env) -> "TAIL("  ^ (string_of_expr_list el)   ^ ", " ^ (string_of_env env) ^ ")"
+
+  | TUPLE_TAIL (el, vl, env) -> "TUPLE_TAIL(" ^ (string_of_expr_list el) ^ ", (" ^ (string_of_value_list vl) ^ "))"
+
   | WHILE (e1, e2, env) -> 
       "WHILE(" ^ (Ast.string_of_expr e1) ^ ", " ^ (Ast.string_of_expr e2) ^ ", " ^ (string_of_env env) ^ ")"
   | MKREF -> "MKREF" 
-  | DEREF -> "DEREF" 
+  | DEREF -> "DEREF"
+  | INDEX i -> "INDEX " ^ (string_of_int i)
 
 let string_of_continuation = string_of_list ";\n " string_of_continuation_action
 
@@ -210,17 +212,21 @@ let mk_ref v = let a = new_address () in let _ = heap.(a) <- v in REF a
 
 let do_assign a v = (heap.(a) <- v)
 
- 
+let rec nth = function
+    | (1, t::tl) -> t
+    | (n, t::tl) -> if n > 0 then nth (n-1,tl) else complain "Runtime indexing error - should never happen"
+    | _ -> complain "Runtime indexing error - should never happen"
+
 let step = function 
  (* EXAMINE --> EXAMINE *) 
  | EXAMINE(UnaryOp(op, e),              env, k) -> EXAMINE(e,  env, (UNARY op) :: k)
  | EXAMINE(Op(e1, op, e2),              env, k) -> EXAMINE(e1, env, OPER_FST(e2, env, op) :: k)
  | EXAMINE(If(e1, e2, e3),              env, k) -> EXAMINE(e1, env, IF(e2, e3, env) :: k)
- | EXAMINE(Pair(e1, e2),                env, k) -> EXAMINE(e1, env, PAIR_FST(e2, env) :: k)
- | EXAMINE(Fst e,                       env, k) -> EXAMINE(e,  env, FST :: k)
- | EXAMINE(Snd e,                       env, k) -> EXAMINE(e,  env, SND :: k) 
  | EXAMINE(Inl e,                       env, k) -> EXAMINE(e,  env, MKINL :: k) 
- | EXAMINE(Inr e,                       env, k) -> EXAMINE(e,  env, MKINR :: k) 
+ | EXAMINE(Inr e,                       env, k) -> EXAMINE(e,  env, MKINR :: k)
+ | EXAMINE(Index(i, e),                 env, k) -> EXAMINE(e,  env, INDEX(i)::k)
+ | EXAMINE(Tuple (e::rest),             env, k) -> EXAMINE(e, env, TUPLE_TAIL(rest, [], env) :: k)
+
  | EXAMINE(Case(e, (x1, e1), (x2, e2)), env, k) -> EXAMINE(e,  env, CASE(x1, e1, x2, e2, env) :: k)
  | EXAMINE(App(e1, e2),                 env, k) -> EXAMINE(e2, env, ARG(e1, env) :: k)
  | EXAMINE(LetFun(f, (x, body), e),     env, k) -> EXAMINE(e, update(env, (f, mk_fun(x, body, env))) , k) 
@@ -232,7 +238,7 @@ let step = function
  | EXAMINE(Seq (e :: rest),             env, k) -> EXAMINE(e, env, TAIL (rest, env) :: k) 
  | EXAMINE(While(e1, e2),               env, k) -> EXAMINE(e1, env, WHILE(e1, e2, env) :: k)
  (* EXAMINE --> COMPUTE *) 
- | EXAMINE(Unit,              _, k) -> COMPUTE(k, UNIT) 
+ | EXAMINE(Unit,              _, k) -> COMPUTE(k, UNIT)
  | EXAMINE(Var x,           env, k) -> COMPUTE(k, lookup (env, x))
  | EXAMINE(Integer n,         _, k) -> COMPUTE(k, INT n)
  | EXAMINE(Boolean b,         _, k) -> COMPUTE(k, BOOL b) 
@@ -240,9 +246,10 @@ let step = function
  (* COMPUTE --> COMPUTE *) 
  | COMPUTE((UNARY op) :: k,    v) -> COMPUTE(k ,(do_unary(op, v)))
  | COMPUTE(OPER(op, v1) :: k, v2) -> COMPUTE(k, do_oper(op, v1, v2))
- | COMPUTE((MKPAIR v1) :: k,  v2) -> COMPUTE(k, PAIR(v1, v2))
- | COMPUTE(FST :: k,  PAIR(v, _)) -> COMPUTE(k, v)
- | COMPUTE(SND :: k,  PAIR(_, v)) -> COMPUTE(k, v)
+
+ | COMPUTE(TUPLE_TAIL([], vl, _)::k, v) -> COMPUTE(k, TUPLE(List.rev (v::vl)))
+ | COMPUTE(INDEX(i)::k, TUPLE(vl)) -> COMPUTE(k, nth(i, vl))
+
  | COMPUTE(MKINL :: k,         v) -> COMPUTE(k, (INL v))
  | COMPUTE(MKINR :: k,         v) -> COMPUTE(k, (INR v))
  | COMPUTE(MKREF :: k,         v) -> COMPUTE(k , mk_ref v)
@@ -254,8 +261,7 @@ let step = function
  | COMPUTE((APPLY v2) :: k, CLOSURE(x, body, env))  -> EXAMINE(body, update(env, (x, v2)), k)
  | COMPUTE((APPLY v2) :: k, REC_CLOSURE(x, body, env)) -> EXAMINE(body, update(env, (x, v2)), k)
  | COMPUTE(ARG (e2, env) :: k,                   v)  -> EXAMINE(e2, env, (APPLY v) :: k)
- | COMPUTE(PAIR_FST (e2, env) :: k,             v1)  -> EXAMINE(e2, env, (MKPAIR v1) :: k)
- | COMPUTE(CASE (x1, e1, x2, e2, env) :: k,  INL v)  -> EXAMINE(e1, update(env, (x1, v)), k) 
+ | COMPUTE(CASE (x1, e1, x2, e2, env) :: k,  INL v)  -> EXAMINE(e1, update(env, (x1, v)), k)
  | COMPUTE(CASE (x1, e1, x2, e2, env) :: k,  INR v)  -> EXAMINE(e2, update(env, (x2, v)), k)
  | COMPUTE(IF (e2, e3, env) :: k,        BOOL true)  -> EXAMINE(e2, env, k)
  | COMPUTE(IF (e2, e3, env) :: k,       BOOL false)  -> EXAMINE(e3, env, k)
@@ -263,6 +269,9 @@ let step = function
  | COMPUTE(ASSIGN_FST (e2, env) :: k,            v)  -> EXAMINE(e2, env, ASSIGN v :: k)
  | COMPUTE(WHILE (e1, e2, env) :: k,     BOOL true)  -> EXAMINE(Seq [e2; e1], env, WHILE(e1, e2, env)::k)
  | COMPUTE((TAIL (el, env)) :: k,     _)  ->  EXAMINE(Seq el, env, k)
+
+ | COMPUTE(TUPLE_TAIL(e::rest, vl, env)::k, v) -> EXAMINE(e, env, TUPLE_TAIL(rest, v::vl, env)::k)
+
  | state -> complain ("step : malformed state = " ^ (string_of_state state) ^ "\n")
 
 let rec driver n state = 

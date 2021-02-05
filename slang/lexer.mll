@@ -13,7 +13,7 @@ let next_line lexbuf =
 }
 
 let newline = ('\010' | "\013\010" )
-let ident_reg_exp = ['A'-'Z' 'a'-'z']+ ['0'-'9' 'A'-'Z' 'a'-'z' '_' '\'']* 
+let ident_reg_exp = ['A'-'Z' 'a'-'z']+ ['0'-'9' 'A'-'Z' 'a'-'z' '_' '\'']*|'_'
 let int_reg_exp = ['0'-'9']+
 
 rule token = parse
@@ -62,6 +62,7 @@ rule token = parse
   | "int" { INTTYPE }
   | "unit" { UNITTYPE }
   | int_reg_exp { INT (int_of_string (Lexing.lexeme lexbuf)) }
+  | "#" { INDEX }
   | ident_reg_exp { IDENT (Lexing.lexeme lexbuf) }
   | "(*" { comment lexbuf; token lexbuf }
   | newline { next_line lexbuf; token lexbuf } 
@@ -72,7 +73,7 @@ rule token = parse
 and comment = parse
   | "*)" { () }
   | newline { next_line lexbuf; comment lexbuf }
+  | _ { comment lexbuf }
   | "(*" {comment lexbuf; comment lexbuf }
-  | _ { comment lexbuf } 
       
 

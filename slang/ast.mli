@@ -13,11 +13,11 @@ type expr =
        | UnaryOp of unary_oper * expr
        | Op of expr * oper * expr
        | If of expr * expr * expr
-       | Pair of expr * expr
-       | Fst of expr 
-       | Snd of expr 
        | Inl of expr 
-       | Inr of expr 
+       | Inr of expr
+
+       | Tuple of (expr list)
+
        | Case of expr * lambda * lambda 
 
        | While of expr * expr 
@@ -30,6 +30,8 @@ type expr =
        | App of expr * expr
        | LetFun of var * lambda * expr
        | LetRecFun of var * lambda * expr
+
+       | Index of int * expr
 
 and lambda = Past.var * expr 
 

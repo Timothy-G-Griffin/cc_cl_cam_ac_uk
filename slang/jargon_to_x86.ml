@@ -118,27 +118,11 @@ let emit_x86 e =
 		   cmd "cqto"              "prepare for div (read x86 docs!)";		   
 		   cmd "idivq %r10"        "do the div, result in %rax"; 
 		   cmd "pushq %rax"        "END div, push result \n")
-	   
-    in let mkpair () =
-	 (cmd "movq %r11,%rdi"        "BEGIN make pair, alloc arg 1 in %rdi"; 
-	  cmd "movq $2,%rsi"          "alloc arg 2 in %rsi";
-	  cmd "movq $0,%rax"          "signal no floating point args";
-	  cmd "pushq %r11"            "%r11 is caller-saved "; 
-	  cmd "call alloc"            "C-call, so result in %rax";
-	  cmd "popq %r11"             "restore %r11"; 		    	  
-	  cmd "popq %r10"             "pop element 2 into %r10";	  
-	  cmd "movq %r10,8(%rax)"     "copy element 2 to heap";
-	  cmd "popq %r10"             "pop element 1 into %r10";	  	  
-	  cmd "movq %r10,(%rax)"      "copy element 1 to heap";
-	  cmd "pushq %rax"            "END make pair, push heap pointer on stack \n")
-	 
-    in let fst () = (cmd "movq (%rsp),%rax"  "BEGIN FST, copy heap pointer";
-		     cmd "movq (%rax),%r10"  "copy element 1 to scratch register";
-		     cmd "movq %r10,(%rsp)"  "END FST, replace top-of-stack with element 1 \n")
-		      
-    in let snd () = (cmd "movq (%rsp),%rax"  "BEGIN SND, copy heap pointer";
-		     cmd "movq 8(%rax),%r10" "copy element 2 to scratch register";
-		     cmd "movq %r10,(%rsp)"  "END SND, replace top-of-stack with element 2 \n")
+
+
+    in let index i = (let m = string_of_int (8 * (i-1)) in (cmd "movq (%rsp),%rax"  "BEGIN INDEX, copy heap pointer";
+                                cmd ("movq " ^ m ^ "(%rax), %r10") "copy element to scratch register";
+                     		     cmd "movq %r10,(%rsp)"  "END INDEX, replace top-of-stack with element \n"))
 		      
     in let mkinl () = 
 	 (cmd "movq %r11,%rdi"        "BEGIN make inl, alloc arg 1 in %rdi"; 
@@ -235,7 +219,21 @@ let emit_x86 e =
 	     cmd ("movq %r10," ^ j ^ "(%rax)")   "copy value to the heap")
 	  done; 
 	  cmd "pushq %rax"                       "END make closure, push heap pointer returned by alloc \n"))
-	      
+
+	in let mktuple n = (let m = string_of_int n in
+         (cmd "movq %r11,%rdi"                   "BEGIN make tuple, alloc arg 1 in %rdi";
+              	  cmd ("movq $" ^ m ^ ",%rsi")           "arg 2 to alloc in %rsi";
+              	  cmd "movq $0,%rax"                     "signal no floating point args";
+              	  cmd "pushq %r11"                       "%r11 is caller-saved ";
+              	  cmd "call alloc"                       "... result in %rax";
+              	  cmd "popq %r11"                        "restore %r11";
+                 	  for i = 0 to (n-1) do
+              	    let j = string_of_int (8 * i) in
+              	    (cmd ("popq %r10")                   "pop value into the scratch register";
+              	     cmd ("movq %r10," ^ j ^ "(%rax)")   "copy value to the heap")
+              	  done;
+              	  cmd "pushq %rax"                       "END make tuple, push heap pointer returned by alloc \n"))
+
 	      
     in let apply () =
 	    (cmd "movq (%rsp),%rax"   "BEGIN apply, copy closure pointer to %rax";
@@ -255,10 +253,9 @@ let emit_x86 e =
     (* emit command *) 	    
     in let emitc = function
 	  | UNARY op -> unary op 
-	  | OPER op  -> binary op 
-	  | MK_PAIR  -> mkpair () 
-	  | FST      -> fst() 
-	  | SND      -> snd()
+	  | OPER op  -> binary op
+	  | MK_TUPLE n -> mktuple n
+	  | INDEX i -> index i
 	  | MK_INL   -> mkinl()
 	  | MK_INR   -> mkinr()
 	  | MK_REF   -> mkref()

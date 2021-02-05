@@ -31,11 +31,11 @@ type value =
      | INT of int 
      | BOOL of bool 
      | UNIT
-     | PAIR of value * value 
      | INL of value 
      | INR of value 
      | CLOSURE of location * env
      | REC_CLOSURE of location
+     | TUPLE of (value list)
 
 and instruction = 
   | PUSH of value 
@@ -45,13 +45,11 @@ and instruction =
   | ASSIGN 
   | SWAP
   | POP 
-  | BIND of var 
-  | FST
-  | SND
+  | BIND of var
   | DEREF 
   | APPLY
-  | RETURN 
-  | MK_PAIR 
+  | RETURN
+  | MK_TUPLE of int
   | MK_INL
   | MK_INR
   | MK_REF 
@@ -61,7 +59,8 @@ and instruction =
   | CASE of location
   | GOTO of location
   | LABEL of label 
-  | HALT 
+  | HALT
+  | INDEX of int
 
 and code = instruction list 
 
@@ -117,11 +116,16 @@ let rec string_of_value = function
      | BOOL b         -> string_of_bool b
      | INT n          -> string_of_int n 
      | UNIT           -> "UNIT"
-     | PAIR(v1, v2)    -> "(" ^ (string_of_value v1) ^ ", " ^ (string_of_value v2) ^ ")"
+     | TUPLE vl       -> "(" ^ (string_of_value_list vl)
      | INL v           -> "inl(" ^ (string_of_value v) ^ ")"
      | INR  v          -> "inr(" ^ (string_of_value v) ^ ")"
      | CLOSURE (loc, c) -> "CLOSURE(" ^ (string_of_closure (loc, c)) ^ ")"
      | REC_CLOSURE(loc) -> "REC_CLOSURE(" ^ (string_of_location loc) ^ ")"
+
+and string_of_value_list = function
+  | [] -> "" (* error if this happens *)
+  | [v] -> (string_of_value v) ^ ")"
+  | (v::rest) -> (string_of_value v) ^ ", " ^ string_of_value_list rest
 
 and string_of_closure (loc, env) = 
    "(" ^ (string_of_location loc) ^ ", " ^ (string_of_env env) ^ ")"
@@ -136,10 +140,8 @@ and string_of_location = function
 
 and string_of_instruction = function 
  | UNARY op -> "UNARY " ^ (string_of_uop op) 
- | OPER op  -> "OPER " ^ (string_of_bop op) 
- | MK_PAIR  -> "MK_PAIR"
- | FST      -> "FST"
- | SND      -> "SND"
+ | OPER op  -> "OPER " ^ (string_of_bop op)
+ | MK_TUPLE n   -> "MK_TUPLE " ^ string_of_int n
  | MK_INL   -> "MK_INL"
  | MK_INR   -> "MK_INR"
  | MK_REF   -> "MK_REF"
@@ -159,6 +161,7 @@ and string_of_instruction = function
  | ASSIGN   -> "ASSIGN"
  | MK_CLOSURE loc  -> "MK_CLOSURE(" ^ (string_of_location loc) ^ ")"
  | MK_REC (v, loc) -> "MK_REC(" ^ v ^ ", " ^ (string_of_location loc) ^ ")"
+ | INDEX i -> "INDEX " ^ (string_of_int i)
 
 and string_of_code c = string_of_list "\n " string_of_instruction c 
 
@@ -226,6 +229,15 @@ let do_oper = function
   | (DIV,  INT m,   INT n)  -> INT (m / n)
   | (op, _, _)  -> complain ("malformed binary operator: " ^ (string_of_oper op))
 
+let rec take = function
+  | (0, ls) -> ([], ls)
+  | (n, V(v)::vs) -> let (front, rest) = take (n-1, vs) in (v::front, rest)
+  | _ -> complain "Stack underflow on take"
+
+let rec nth = function
+    | (1, t::tl) -> t
+    | (n, t::tl) -> if n > 0 then nth (n-1,tl) else complain "Runtime indexing error - should never happen"
+    | _ -> complain "Runtime indexing error - should never happen"
 
 let step (cp, evs) = 
  match (get_instruction cp, evs) with 
@@ -236,9 +248,9 @@ let step (cp, evs) =
  | (LOOKUP x,                          evs) -> (cp + 1, V(search(evs, x)) :: evs)
  | (UNARY op,                 (V v) :: evs) -> (cp + 1, V(do_unary(op, v)) :: evs) 
  | (OPER op,       (V v2) :: (V v1) :: evs) -> (cp + 1, V(do_oper(op, v1, v2)) :: evs)
- | (MK_PAIR,       (V v2) :: (V v1) :: evs) -> (cp + 1, V(PAIR(v1, v2)) :: evs)
- | (FST,             V(PAIR (v, _)) :: evs) -> (cp + 1, (V v) :: evs)
- | (SND,             V(PAIR (_, v)) :: evs) -> (cp + 1, (V v) :: evs)
+
+ | (MK_TUPLE n,                        evs) -> let (vs, rest) = take (n, evs) in (cp + 1, V(TUPLE(List.rev vs))::rest)
+ | (INDEX i,         (V (TUPLE vl)) :: evs) -> (cp + 1, (V (nth (i, vl))) :: evs)
  | (MK_INL,                   (V v) :: evs) -> (cp + 1, V(INL v) :: evs)
  | (MK_INR,                   (V v) :: evs) -> (cp + 1, V(INR v) :: evs)
  | (CASE (_, Some _),        V(INL v)::evs) -> (cp + 1, (V v) :: evs) 
@@ -276,11 +288,11 @@ let rec comp = function
   | Op(e1, op, e2) -> let (defs1, c1) = comp e1 in  
                       let (defs2, c2) = comp e2 in  
                           (defs1 @ defs2, c1 @ c2 @ [OPER op])
-  | Pair(e1, e2)   -> let (defs1, c1) = comp e1 in  
-                      let (defs2, c2) = comp e2 in  
-                          (defs1 @ defs2, c1 @ c2 @ [MK_PAIR]) 
-  | Fst e          -> let (defs, c) = comp e in (defs, c @ [FST])
-  | Snd e          -> let (defs, c) = comp e in (defs, c @ [SND])
+
+  | Tuple(el)      -> List.fold_right (fun e -> fun (defs,c) -> let (defs1, c1) = comp e
+                                           in (defs1 @ defs, c1 @ c)) el ([], [MK_TUPLE(List.length el)])
+  | Index(i, e)    -> let (defs, c) = comp e in (defs, c @ [INDEX i])
+
   | Inl e          -> let (defs, c) = comp e in (defs, c @ [MK_INL])
   | Inr e          -> let (defs, c) = comp e in (defs, c @ [MK_INR])
   | Case(e1, (x1, e2), (x2, e3)) -> 
@@ -290,7 +302,7 @@ let rec comp = function
                       let (defs2, c2) = comp e2 in  
                       let (defs3, c3) = comp e3 in  
                          (defs1 @ defs2 @ defs3, 
-                          (c1 
+                          (c1
    		           @ [CASE(inr_label, None)] 
                            @ ((BIND x1) :: c2 @ [SWAP; POP])
 		           @ [GOTO (after_inr_label, None); LABEL inr_label] 
@@ -357,21 +369,22 @@ let rec comp = function
 
   which is simpler. 
 
-*) 
- | LetFun(f, (x, e1), e2) -> 
-                      let (defs1, c1) = comp e1 in  
-                      let (defs2, c2) = comp e2 in
-                      let lab = new_label () in
-                      let def = [LABEL lab; BIND x] @ c1 @ [SWAP; POP; RETURN] in
-                          (def @ defs1 @ defs2, 
-                           [MK_CLOSURE((lab, None)); BIND f] @ c2 @ [SWAP; POP])
- | LetRecFun(f, (x, e1), e2) -> 
-                      let (defs1, c1) = comp e1 in  
-                      let (defs2, c2) = comp e2 in
-                      let lab = new_label () in
-                      let def = [LABEL lab; BIND x] @ c1 @ [SWAP; POP; RETURN] in
-                          (def @ defs1 @ defs2, 
-                           [MK_REC(f, (lab, None)); BIND f] @ c2 @ [SWAP; POP])
+*)
+  | LetFun(f, (x, e1), e2) ->
+                       let (defs1, c1) = comp e1 in
+                       let (defs2, c2) = comp e2 in
+                       let lab = new_label () in
+                       let def = [LABEL lab; BIND x] @ c1 @ [SWAP; POP; RETURN] in
+                           (def @ defs1 @ defs2,
+                            [MK_CLOSURE((lab, None)); BIND f] @ c2 @ [SWAP; POP])
+  | LetRecFun(f, (x, e1), e2) ->
+                       let (defs1, c1) = comp e1 in
+                       let (defs2, c2) = comp e2 in
+                       let lab = new_label () in
+                        let def = [LABEL lab; BIND x] @ c1 @ [SWAP; POP; RETURN] in
+                            (def @ defs1 @ defs2,
+                              [MK_REC(f, (lab, None)); BIND f] @ c2 @ [SWAP; POP])
+
 let compile e = 
     let (defs, c) = comp e in 
     let result = c @               (* body of program *) 

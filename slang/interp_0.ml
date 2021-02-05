@@ -40,10 +40,10 @@ and value =
      | INT of int 
      | BOOL of bool 
      | UNIT
-     | PAIR of value * value 
      | INL of value 
      | INR of value 
-     | FUN of ((value * store) -> (value * store)) 
+     | FUN of ((value * store) -> (value * store))
+     | TUPLE of (value list)
 
 type env = var -> value 
 
@@ -58,10 +58,14 @@ let rec string_of_value = function
      | BOOL b -> string_of_bool b
      | INT n -> string_of_int n 
      | UNIT -> "()"
-     | PAIR(v1, v2) -> "(" ^ (string_of_value v1) ^ ", " ^ (string_of_value v2) ^ ")"
      | INL v -> "inl(" ^ (string_of_value v) ^ ")"
      | INR  v -> "inr(" ^ (string_of_value v) ^ ")"
-     | FUN _ -> "FUNCTION( ... )" 
+     | FUN _ -> "FUNCTION( ... )"
+     | TUPLE vl -> "(" ^ (string_of_tuple vl)
+and string_of_tuple = function
+  | [] -> complain "Shouldn't happen - empty tuple being printed"
+  | [v] -> (string_of_value v) ^ ")"
+  | v::rest -> (string_of_value v) ^ ", " ^ (string_of_tuple rest)
     
 (* update : (env * binding) -> env 
    update : (store * (address * value)) -> store
@@ -102,9 +106,14 @@ let do_ref = function
 let do_assign a = function 
   | (v, store) -> (UNIT, update(store, (a, v)))
 
+let rec nth = function
+    | (1, t::tl) -> t
+    | (n, t::tl) -> if n > 0 then nth (n-1,tl) else complain "Runtime indexing error - should never happen"
+    | _ -> complain "Runtime indexing error - should never happen"
+
 (*
     interpret : (expr * env * store) -> (value * store) 
-              : (expr * (var -> value) * address -> value) -> value
+              : (expr * (var -> value) * address -> value) -> value * store
 *) 
 let rec interpret (e, env, store) = 
     match e with 
@@ -138,18 +147,14 @@ let rec interpret (e, env, store) =
                           | BOOL false -> interpret(e3, env, store')
                           | v -> complain "runtime error.  Expecting a boolean!"
                           )
-    | Pair(e1, e2)     -> let (v1, store1) = interpret(e1, env, store) in 
-                          let (v2, store2) = interpret(e2, env, store1) in (PAIR(v1, v2), store2) 
-    | Fst e            -> (match interpret(e, env, store) with 
-                           | (PAIR (v1, _), store') -> (v1, store') 
-                           | (v, _) -> complain "runtime error.  Expecting a pair!"
-                          )
-    | Snd e            -> (match interpret(e, env, store) with 
-                           | (PAIR (_, v2), store') -> (v2, store') 
-                           | (v, _) -> complain "runtime error.  Expecting a pair!"
-                          )
+
     | Inl e            -> let (v, store') = interpret(e, env, store) in (INL v, store') 
-    | Inr e            -> let (v, store') = interpret(e, env, store) in (INR v, store') 
+    | Inr e            -> let (v, store') = interpret(e, env, store) in (INR v, store')
+
+    | Tuple el          -> let (vl, s) =
+         List.fold_left (fun (vl, s) -> fun e -> let (v,s') = interpret(e, env, s) in (v::vl, s')) ([], store) el
+         in (TUPLE(List.rev vl), s)
+
     | Case(e, (x1, e1), (x2, e2)) -> 
       let (v, store') = interpret(e, env, store) in 
        (match v with 
@@ -170,7 +175,10 @@ let rec interpret (e, env, store) =
     | LetRecFun(f, (x, body), e) -> 
        let rec new_env g = (* a recursive environment! *) 
            if g = f then FUN (fun (v, s) -> interpret(body, update(new_env, (x, v)), s)) else env g
-       in interpret(e, new_env, store) 
+       in interpret(e, new_env, store)
+    | Index(i, e) -> (match interpret(e, env, store) with
+                       | (TUPLE (vl), store') -> (nth (i,vl), store')
+                       | _ -> complain "runtime error.  Expecting a tuple!")
 
 (* env_empty : env *) 
 let empty_env = fun x -> complain (x ^ " is not defined!\n")

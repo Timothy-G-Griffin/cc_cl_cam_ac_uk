@@ -9,10 +9,10 @@ and value =
      | INT of int 
      | BOOL of bool 
      | UNIT
-     | PAIR of value * value 
      | INL of value 
      | INR of value 
      | FUN of ((value * store) -> (value * store))
+     | TUPLE of (value list)
 
 type env = Ast.var -> value 
 

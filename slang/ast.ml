@@ -13,11 +13,11 @@ type expr =
        | UnaryOp of unary_oper * expr
        | Op of expr * oper * expr
        | If of expr * expr * expr
-       | Pair of expr * expr
-       | Fst of expr 
-       | Snd of expr 
        | Inl of expr 
-       | Inr of expr 
+       | Inr of expr
+
+       | Tuple of (expr list)
+
        | Case of expr * lambda * lambda 
        | While of expr * expr 
        | Seq of (expr list)
@@ -28,6 +28,8 @@ type expr =
        | App of expr * expr
        | LetFun of var * lambda * expr
        | LetRecFun of var * lambda * expr
+
+       | Index of int * expr
 
 and lambda = var * expr 
 
@@ -65,7 +67,9 @@ let fstring ppf s = fprintf ppf "%s" s
 
 let pp_unary ppf t = fstring ppf (pp_uop t) 
 
-let pp_binary ppf t = fstring ppf (pp_bop t) 
+let pp_binary ppf t = fstring ppf (pp_bop t)
+
+let pp_int ppf i = fstring ppf (string_of_int i)
 
 let rec pp_expr ppf = function 
     | Unit             -> fstring ppf "()" 
@@ -76,11 +80,11 @@ let rec pp_expr ppf = function
     | Op(e1, op, e2)   -> fprintf ppf "(%a %a %a)" pp_expr e1  pp_binary op pp_expr e2 
     | If(e1, e2, e3)   -> fprintf ppf "@[if %a then %a else %a @]" 
                                       pp_expr e1 pp_expr e2 pp_expr e3
-    | Pair(e1, e2)     -> fprintf ppf "(%a, %a)" pp_expr e1 pp_expr e2
-    | Fst e            -> fprintf ppf "fst(%a)" pp_expr e
-    | Snd e            -> fprintf ppf "snd(%a)" pp_expr e
     | Inl e            -> fprintf ppf "inl(%a)" pp_expr e
     | Inr e            -> fprintf ppf "inr(%a)" pp_expr e
+
+    | Tuple el         -> fprintf ppf "(%a)" pp_expr_list el
+
     | Case(e, (x1, e1), (x2, e2)) -> 
         fprintf ppf "@[<2>case %a of@ | inl %a -> %a @ | inr %a -> %a end@]" 
                      pp_expr e fstring x1 pp_expr e1 fstring x2 pp_expr e2 
@@ -99,6 +103,8 @@ let rec pp_expr ppf = function
     | LetRecFun(f, (x, e1), e2)  -> 
          fprintf ppf "@[letrec %a(%a) =@ %a @ in %a @ end@]" 
                      fstring f fstring x  pp_expr e1 pp_expr e2
+    | Index(i, e) -> fprintf ppf "#%a (%a)" pp_int i pp_expr e
+
 and pp_expr_list ppf = function 
   | [] -> () 
   | [e] -> pp_expr ppf e 
@@ -148,11 +154,11 @@ let rec string_of_expr = function
     | UnaryOp(op, e)   -> mk_con "UnaryOp" [string_of_uop op; string_of_expr e]
     | Op(e1, op, e2)   -> mk_con "Op" [string_of_expr e1; string_of_bop op; string_of_expr e2]
     | If(e1, e2, e3)   -> mk_con "If" [string_of_expr e1; string_of_expr e2; string_of_expr e3]
-    | Pair(e1, e2)     -> mk_con "Pair" [string_of_expr e1; string_of_expr e2]
-    | Fst e            -> mk_con "Fst" [string_of_expr e] 
-    | Snd e            -> mk_con "Snd" [string_of_expr e] 
     | Inl e            -> mk_con "Inl" [string_of_expr e] 
-    | Inr e            -> mk_con "Inr" [string_of_expr e] 
+    | Inr e            -> mk_con "Inr" [string_of_expr e]
+
+    | Tuple el         -> mk_con "Tuple" [string_of_expr_list el]
+
     | Lambda(x, e)     -> mk_con "Lambda" [x; string_of_expr e]
     | App(e1, e2)      -> mk_con "App" [string_of_expr e1; string_of_expr e2]
     | Seq el           -> mk_con "Seq" [string_of_expr_list el] 
@@ -169,6 +175,7 @@ let rec string_of_expr = function
               string_of_expr e; 
 	      mk_con "" [x1; string_of_expr e1]; 
 	      mk_con "" [x2; string_of_expr e2]]
+	| Index(i, e) -> mk_con "Index" [string_of_int i; string_of_expr e]
 
 and string_of_expr_list = function 
   | [] -> "" 

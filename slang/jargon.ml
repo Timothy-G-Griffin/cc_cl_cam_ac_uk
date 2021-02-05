@@ -27,11 +27,11 @@ type stack_item =
   | STACK_FP of stack_index   (* Frame pointer                *) 
 
 
-type heap_type = 
-  | HT_PAIR 
+type heap_type =
   | HT_INL 
   | HT_INR 
-  | HT_CLOSURE 
+  | HT_CLOSURE
+  | HT_TUPLE  (* HEAD_HEADER indicates length *)
 
 type heap_item = 
   | HEAP_INT of int 
@@ -55,12 +55,10 @@ type instruction =
   | SWAP
   | POP 
 (*  | BIND of var            not needed *) 
-  | FST
-  | SND
-  | DEREF 
+  | DEREF
   | APPLY
-  | RETURN 
-  | MK_PAIR 
+  | RETURN
+  | MK_TUPLE of int
   | MK_INL
   | MK_INR
   | MK_REF 
@@ -69,7 +67,8 @@ type instruction =
   | CASE of location
   | GOTO of location
   | LABEL of label 
-  | HALT 
+  | HALT
+  | INDEX of int
 
 type listing = instruction list 
 
@@ -118,12 +117,11 @@ let string_of_stack_item = function
   | STACK_RA i       -> "STACK_RA " ^ (string_of_int i)
   | STACK_FP i       -> "STACK_FP " ^ (string_of_int i)
 
-let string_of_heap_type = function 
-    | HT_PAIR    -> "HT_PAIR"
+let string_of_heap_type = function
     | HT_INL     -> "HT_INL"
     | HT_INR     -> "HT_INR"
     | HT_CLOSURE -> "HT_CLOSURE"
-
+    | HT_TUPLE   -> "HT_TUPLE"
 
 let string_of_heap_item = function 
   | HEAP_INT i      -> "HEAP_INT " ^ (string_of_int i)
@@ -145,10 +143,8 @@ let string_of_location = function
 
 let string_of_instruction = function 
  | UNARY op -> "UNARY " ^ (string_of_uop op) 
- | OPER op  -> "OPER " ^ (string_of_bop op) 
- | MK_PAIR  -> "MK_PAIR"
- | FST      -> "FST"
- | SND      -> "SND"
+ | OPER op  -> "OPER " ^ (string_of_bop op)
+ | MK_TUPLE n -> "MK_TUPLE " ^ (string_of_int n)
  | MK_INL   -> "MK_INL"
  | MK_INR   -> "MK_INR"
  | MK_REF   -> "MK_REF"
@@ -168,6 +164,8 @@ let string_of_instruction = function
  | MK_CLOSURE (loc, n)  
              -> "MK_CLOSURE(" ^ (string_of_location loc) 
 	                      ^ ", " ^ (string_of_int n) ^ ")"
+ | INDEX i -> "INDEX " ^ (string_of_int i)
+
 let rec string_of_listing = function 
   | [] -> "\n"  
   | (LABEL l) :: rest -> ("\n" ^ l ^ " :") ^ (string_of_listing rest) 
@@ -219,11 +217,17 @@ let rec string_of_heap_value a vm =
   | HEAP_CI _       -> Errors.complain "string_of_heap_value: expecting value in heap, found code index"
   | HEAP_HEADER (i, ht) -> 
     (match ht with 
-    | HT_PAIR -> "(" ^ (string_of_heap_value (a + 1) vm) ^ ", " ^ (string_of_heap_value (a + 2) vm) ^ ")"
-    | HT_INL -> "inl(" ^ (string_of_heap_value (a + 1) vm) ^ ")" 
+    | HT_INL -> "inl(" ^ (string_of_heap_value (a + 1) vm) ^ ")"
     | HT_INR -> "inr(" ^ (string_of_heap_value (a + 1) vm) ^ ")" 
     | HT_CLOSURE -> "CLOSURE"
+    | HT_TUPLE -> "(" ^ string_of_heap_list a vm (i-1)
     )
+
+and string_of_heap_list a vm n =
+    let rec aux m =
+        if m = n then (string_of_heap_value (a+m) vm) ^ ")"
+        else (string_of_heap_value (a+m) vm) ^ ", " ^ aux (m+1)
+    in aux 1
 
 let string_of_value vm = 
     match stack_top vm with 
@@ -336,38 +340,30 @@ let allocate(n, vm) =
           then (vm2.hp, { vm2 with hp = vm2.hp + n })  
           else Errors.complain "allocate : heap exhausted"
 
-let mk_pair vm = 
-    let (v_right, vm1) = pop_top vm in 
-    let (v_left, vm2) = pop_top vm1 in 
-    let (a, vm3) = allocate(3, vm2) in 
-    let header = HEAP_HEADER (3, HT_PAIR) in 
-    let _ = Array.set vm.heap a header in 
-    let _ = Array.set vm.heap (a + 1) (stack_to_heap_item v_left) in 
-    let _ = Array.set vm.heap (a + 2) (stack_to_heap_item v_right) in 
-        push(STACK_HI a, vm3) 
-
-let do_fst vm = 
-    let (v, vm1) = pop_top vm in 
-    match v with 
-    | STACK_HI a -> 
-      (match vm1.heap.(a) with 
-      | HEAP_HEADER(_, HT_PAIR) -> 
-           push(heap_to_stack_item (vm.heap.(a + 1)), vm1) 
-      | _ -> Errors.complain "do_fst : unexpectd heap item"     
-      )
-    | _ -> Errors.complain "do_fst : expecting heap pointer on stack"
 
 
-let do_snd vm = 
-    let (v, vm1) = pop_top vm in 
-    match v with 
-    | STACK_HI a -> 
-      (match vm1.heap.(a) with 
-      | HEAP_HEADER(_, HT_PAIR) -> 
-           push(heap_to_stack_item (vm.heap.(a + 2)), vm1)      
-      | _ -> Errors.complain "do_snd : unexpectd heap item"
-      )
-    | _ -> Errors.complain "do_snd : expecting heap pointer on stack"
+let mk_tuple (n, vm) =
+    let (a, vm1) = allocate(1 + n, vm)       in
+    let _ = vm1.heap.(a)     <- HEAP_HEADER (1 + n, HT_TUPLE)       in
+    let rec aux m =
+        if m = n then ()
+        else let v = stack_to_heap_item vm1.stack.(vm.sp - (m + 1)) in
+             let _ = vm1.heap.(a + m + 1) <- v in aux (m + 1)
+    in let _ = aux 0 in
+       let vm2 = pop(n, vm1) in push(STACK_HI a, vm2)
+
+
+
+let do_index vm i =
+    let (v, vm1) = pop_top vm in
+    match v with
+    | STACK_HI a ->
+          (match vm1.heap.(a) with
+          | HEAP_HEADER(_, HT_TUPLE) ->
+               push(heap_to_stack_item (vm.heap.(a + i)), vm1)
+          | _ -> Errors.complain "do_index : unexpectd heap item"
+          )
+        | _ -> Errors.complain "do_index : expecting heap pointer on stack"
 
 let mk_inl vm = 
     let (v, vm1) = pop_top vm in 
@@ -478,9 +474,10 @@ let step vm =
  match get_instruction vm with 
   | UNARY op          -> advance_cp (perform_unary(op, vm)) 
   | OPER op           -> advance_cp (perform_op(op, vm)) 
-  | MK_PAIR           -> advance_cp (mk_pair vm)
-  | FST               -> advance_cp (do_fst vm)
-  | SND               -> advance_cp (do_snd vm)
+
+  | MK_TUPLE n        -> advance_cp (mk_tuple (n, vm))
+  | INDEX i           -> advance_cp (do_index vm i)
+
   | MK_INL            -> advance_cp (mk_inl vm)
   | MK_INR            -> advance_cp (mk_inr vm)
   | PUSH c            -> advance_cp (push(c, vm)) 
@@ -499,7 +496,7 @@ let step vm =
   | HALT              -> { vm with status = Halted } 
   | GOTO (_, Some i)  -> goto(i, vm) 
   | TEST (_, Some i)  -> test(i, vm) 
-  | CASE (_, Some i)  -> case(i, vm) 
+  | CASE (_, Some i)  -> case(i, vm)
 
   | _ -> Errors.complain ("step : bad state = " ^ (string_of_state vm) ^ "\n")
 
@@ -625,11 +622,11 @@ let rec comp vmap = function
   | Op(e1, op, e2) -> let (defs1, c1) = comp vmap e1 in  
                       let (defs2, c2) = comp vmap e2 in  
                           (defs1 @ defs2, c1 @ c2 @ [OPER op])
-  | Pair(e1, e2)   -> let (defs1, c1) = comp vmap e1 in  
-                      let (defs2, c2) = comp vmap e2 in  
-                          (defs1 @ defs2, c1 @ c2 @ [MK_PAIR]) 
-  | Fst e          -> let (defs, c) = comp vmap e in (defs, c @ [FST])
-  | Snd e          -> let (defs, c) = comp vmap e in (defs, c @ [SND])
+
+  | Tuple el       ->  List.fold_right (fun e -> fun (defs,c) -> let (defs1, c1) = comp vmap e
+                                      in (defs1 @ defs, c1 @ c)) (List.rev el) ([], [MK_TUPLE(List.length el)])
+  | Index (i, e)   -> let (defs, c) = comp vmap e in (defs, c @ [INDEX i])
+
   | Inl e          -> let (defs, c) = comp vmap e in (defs, c @ [MK_INL])
   | Inr e          -> let (defs, c) = comp vmap e in (defs, c @ [MK_INR])
   | Case(e1, (x1, e2), (x2, e3)) -> 
