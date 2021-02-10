@@ -113,7 +113,7 @@ let emit_x86 e =
 		   cmd "imulq %r10"        "multiply %r10 by %rax, result in %rax"; 
 		   cmd "pushq %rax"        "END mul, push result \n")
 		    
-	 | DIV -> (cmd "popq %r10"         "BEGIN div, , pop top-of-stack to %r10";
+	 | DIV -> (cmd "popq %r10"         "BEGIN div, pop top-of-stack to %r10";
 		   cmd "popq %rax"         "pop divisor into %rax"; 
 		   cmd "cqto"              "prepare for div (read x86 docs!)";		   
 		   cmd "idivq %r10"        "do the div, result in %rax"; 
@@ -182,7 +182,7 @@ let emit_x86 e =
    in let heap_lookup i =
 	(let j = string_of_int (8 * i) in  	   
 	 (cmd "movq 8(%rbp), %rax"               "BEGIN heap lookup, copy closure pointer to %rax";
- 	  cmd ("movq " ^ j ^ "(%rax)" ^ ",%r10") ("put closue value at index " ^ (string_of_int i) ^ " in scratch register");
+ 	  cmd ("movq " ^ j ^ "(%rax)" ^ ",%r10") ("put closure value at index " ^ (string_of_int i) ^ " in scratch register");
 	  cmd "pushq %r10"                       "END heap lookup, push value \n"))
 
    in let test l = 
@@ -210,7 +210,7 @@ let emit_x86 e =
 	  cmd "pushq %rax"            "END make ref, push heap pointer \n")
 	   
     in let deref () =
-	 (cmd "movq (%rsp),%rax"      "BEGIN deref, copy ref pointer to $aux";
+	 (cmd "movq (%rsp),%rax"      "BEGIN deref, copy ref pointer to $rax";
    	  cmd "movq (%rax),%rax"      "copy value to %rax"; 
    	  cmd "movq %rax,(%rsp)"      "END deref, replace top-of-stack with value \n")
 	   
@@ -240,17 +240,17 @@ let emit_x86 e =
     in let apply () =
 	    (cmd "movq (%rsp),%rax"   "BEGIN apply, copy closure pointer to %rax";
              cmd "movq (%rax),%rax"   "get the the function address from heap";	  
-	     cmd "pushq %rbp"         "save the frame pointer";
-	     cmd "movq %rsp,%rbp"     "set new frame pointer";	     	     
+	     cmd "pushq %rbp"         "save the base pointer";
+	     cmd "movq %rsp,%rbp"     "set new base pointer";	     	     
       	     cmd "call *%rax"         "call pushes return address, jumps to function";
-	     cmd "popq %rbp"          "retore base pointer";	     
+	     cmd "popq %rbp"          "restore base pointer";	     
 	     cmd "addq $8, %rsp"      "pop closure";
 	     cmd "addq $8, %rsp"      "pop argument";
 	     cmd "pushq %rax"         "END apply, push returned value on stack \n")
 	      
     in let ret () = 
 	    (cmd "popq %rax"         "BEGIN return. put top-of-stack in %rax";
-      	     cmd "ret"               "END retrun, this pops return address, jumps there \n")
+      	     cmd "ret"               "END return, this pops return address, jumps there \n")
 	    
     (* emit command *) 	    
     in let emitc = function
@@ -278,7 +278,7 @@ let emit_x86 e =
 	  | PUSH (STACK_INT i)      -> cmd ("pushq $" ^ (string_of_int i)) "push int \n"
 	  | PUSH (STACK_BOOL true)  -> cmd "pushq $1" "push true \n"
 	  | PUSH (STACK_BOOL false) -> cmd "pushq $0" "push false \n"
-	  | PUSH STACK_UNIT         -> cmd "pushq $0" "push false \n"
+	  | PUSH STACK_UNIT         -> cmd "pushq $0" "push unit \n"
 	  | PUSH (STACK_HI i)       -> complain "Internal Error : Jargon code never explicitly pushes stack pointer"
 	  | PUSH (STACK_RA i)       -> complain "Internal Error : Jargon code never explicitly pushes return address"
 	  | PUSH (STACK_FP i)       -> complain "Internal Error : Jargon code never explicitly pushes frame pointer"
